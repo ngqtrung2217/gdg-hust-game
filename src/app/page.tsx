@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Trophy,
-  Sparkles,
   Gamepad2,
   Search,
 } from "lucide-react";
@@ -78,59 +77,17 @@ export default function Home() {
   }, [searchQuery]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 select-none">
-      {/* Hero Section */}
-      <section className="mb-10 flex flex-col items-start gap-4">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1 text-xs font-semibold text-muted shadow-sm">
-          <Sparkles className="h-3.5 w-3.5 text-google-yellow" />
-          <span>Nền tảng Mini-Game chính thức của GDG-HUST</span>
-        </div>
-
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
+    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 select-none">
+      {/* Top Header / Search Area */}
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+        <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
           <span className="text-google-blue">G</span>
           <span className="text-google-red">D</span>
           <span className="text-google-yellow">G</span>
-          <span className="text-google-green"> Game Arcade</span>
+          <span className="text-google-green"> Arcade</span>
         </h1>
 
-        <p className="max-w-2xl text-base text-muted sm:text-lg">
-          Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo phong cách Google Material Design 3. Chơi ngay trên trình duyệt, không cần cài đặt!
-        </p>
-
-        {/* Action Buttons & Progress Bar */}
-        <div className="flex flex-wrap items-center gap-3 w-full">
-          <a
-            href="#games-grid"
-            className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-md transition-all hover:scale-105 active:scale-95"
-          >
-            <Gamepad2 className="h-4 w-4" />
-            Khám phá 9 trò chơi
-          </a>
-          <Link
-            href="/leaderboard"
-            className="flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-surface-hover hover:border-primary/40 active:scale-95"
-          >
-            <Trophy className="h-4 w-4 text-google-yellow" />
-            Xem Bảng xếp hạng
-          </Link>
-        </div>
-      </section>
-
-      {/* Games Grid Section */}
-      <section id="games-grid" className="scroll-mt-20">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              Kho Trò Chơi Arcade
-              <span className="rounded-full bg-primary/10 text-primary text-xs font-bold px-2.5 py-0.5">
-                {filteredGames.length} trò chơi
-              </span>
-            </h2>
-            <p className="text-xs text-muted mt-0.5">
-              Chọn một trò chơi để bắt đầu rèn luyện trí tuệ và thử thách kỷ lục
-            </p>
-          </div>
-
+        <div className="flex items-center gap-3">
           {/* Search Input */}
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
@@ -142,7 +99,16 @@ export default function Home() {
               className="w-full rounded-full border border-border bg-surface pl-10 pr-4 py-2 text-xs font-medium focus:border-primary focus:outline-none shadow-sm"
             />
           </div>
+
+          <Link
+            href="/leaderboard"
+            className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-foreground transition-all hover:bg-surface-hover hover:border-primary/40 active:scale-95 shrink-0 shadow-sm"
+          >
+            <Trophy className="h-4 w-4 text-google-yellow" />
+            <span>Bảng xếp hạng</span>
+          </Link>
         </div>
+      </div>
 
         {/* 9 Games Grid */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -205,7 +171,6 @@ export default function Home() {
             <p className="text-xs text-muted mt-1">Hãy thử tìm kiếm với từ khóa khác</p>
           </div>
         )}
-      </section>
     </div>
   );
 }
