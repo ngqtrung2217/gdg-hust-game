@@ -72,7 +72,8 @@ export const GAME_GUIDES: Record<string, GameGuide> = {
     rules: [
       "Tốc độ chạy sẽ tự động tăng dần theo thời gian và điểm số.",
       "Dực long Pterodactyl sẽ xuất hiện từ 250 điểm trở lên với 3 độ cao khác nhau.",
-      "Cứ mỗi 100 điểm, bạn sẽ nghe thấy tiếng ting ting báo mốc kỷ lục.",
+      "Cứ mỗi 100 điểm, bạn sẽ nghe thấy tiếng ting ting báo mốc kỷ lục. Cứ mỗi 700 điểm, trời sẽ chuyển sang đêm với mặt trăng lưỡi liềm và các vì sao.",
+      "Nhặt ngọc Khiên Bảo Hộ trên đường để tạo lớp màng năng lượng bảo vệ bạn khỏi 1 lần va chạm tử thần.",
     ],
     controls: [
       { key: "Space / Phím ↑", action: "Nhảy lên (Giữ phím lâu hơn để nhảy cao hơn)" },
@@ -80,8 +81,9 @@ export const GAME_GUIDES: Record<string, GameGuide> = {
       { key: "Chạm màn hình", action: "Nhảy trên thiết bị cảm ứng điện thoại" },
     ],
     tips: [
-      "Khi đang ở trên không, bấm ngay phím Mũi tên Xuống để rơi nhanh xuống đất, chuẩn bị kịp cho chướng ngại vật tiếp theo.",
-      "Dực long bay tầm cao có thể đi bộ thong thả bên dưới mà không cần nhảy hay cúi.",
+      "Nhặt Khiên Năng Lượng khi xuất hiện để có thêm 1 mạng sống miễn phí!",
+      "Hãy thử chế độ Turbo Nitro để xuất phát ngay ở tốc độ cao và nhận thưởng hệ số điểm x1.5!",
+      "Tùy biến ngoại trang Khủng long: Kính râm cực ngầu, Vương miện hoàng gia hoặc Android Robot.",
     ],
   },
   othello: {

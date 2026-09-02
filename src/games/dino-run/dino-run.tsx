@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, ArrowUp, ArrowDown } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, ArrowUp, ArrowDown, Shield, Zap } from "lucide-react";
 import { isAudioMuted } from "@/lib/audio";
 
 // Canvas logical dimensions
@@ -15,41 +15,34 @@ const INITIAL_JUMP_V = -11.8;
 const MIN_JUMP_V = -4.0; // variable jump height when key released
 const FAST_DROP_V = 12.0; // fast fall when pressing down in air
 const BASE_SPEED = 6.0;
+const TURBO_SPEED = 10.2;
 const MAX_SPEED = 13.5;
-const ACCELERATION = 0.001; // speed increase per score point
+const ACCELERATION = 0.001;
 
-// Sprite sheet details (1233x68)
-const SPRITE_URL = "/games/dino/sprite.png";
+// Sprite Coordinates in offline-sprite-2x.png (DPR 2x standard)
+const SPRITE_DINO_IDLE = { sx: 1338, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_RUN1 = { sx: 1514, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_RUN2 = { sx: 1558, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_DUCK1 = { sx: 1866, sy: 19, sw: 59, sh: 30 };
+const SPRITE_DINO_DUCK2 = { sx: 1925, sy: 19, sw: 59, sh: 30 };
+const SPRITE_DINO_DEAD = { sx: 1690, sy: 2, sw: 44, sh: 47 };
 
-// Standing Dino: (44x47)
-const SPRITE_DINO_IDLE = { sx: 848, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_RUN1 = { sx: 936, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_RUN2 = { sx: 980, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_DEAD = { sx: 1068, sy: 2, sw: 44, sh: 47 };
+const SPRITE_CACTUS_S1 = { sx: 446, sy: 2, sw: 17, sh: 35 };
+const SPRITE_CACTUS_S2 = { sx: 480, sy: 2, sw: 34, sh: 35 };
+const SPRITE_CACTUS_S3 = { sx: 514, sy: 2, sw: 51, sh: 35 };
+const SPRITE_CACTUS_L1 = { sx: 652, sy: 2, sw: 25, sh: 50 };
+const SPRITE_CACTUS_L2 = { sx: 677, sy: 2, sw: 50, sh: 50 };
 
-// Ducking Dino: (59x30)
-const SPRITE_DINO_DUCK1 = { sx: 1112, sy: 19, sw: 59, sh: 30 };
-const SPRITE_DINO_DUCK2 = { sx: 1171, sy: 19, sw: 59, sh: 30 };
+const SPRITE_PTERO1 = { sx: 260, sy: 2, sw: 46, sh: 40 };
+const SPRITE_PTERO2 = { sx: 306, sy: 2, sw: 46, sh: 40 };
 
-// Cacti
-const SPRITE_CACTUS_S1 = { sx: 228, sy: 2, sw: 17, sh: 35 };
-const SPRITE_CACTUS_S2 = { sx: 228, sy: 2, sw: 34, sh: 35 };
-const SPRITE_CACTUS_S3 = { sx: 228, sy: 2, sw: 51, sh: 35 };
-const SPRITE_CACTUS_L1 = { sx: 332, sy: 2, sw: 25, sh: 50 };
-const SPRITE_CACTUS_L2 = { sx: 332, sy: 2, sw: 50, sh: 50 };
-
-// Pterodactyl: (46x40)
-const SPRITE_PTERO1 = { sx: 134, sy: 2, sw: 46, sh: 40 };
-const SPRITE_PTERO2 = { sx: 180, sy: 2, sw: 46, sh: 40 };
-
-// Clouds: (46x14)
-const SPRITE_CLOUD = { sx: 86, sy: 2, sw: 46, sh: 14 };
-
-// Ground segments: (600x12)
-const SPRITE_GROUND1 = { sx: 2, sy: 54, sw: 600, sh: 12 };
-const SPRITE_GROUND2 = { sx: 602, sy: 54, sw: 600, sh: 12 };
+const SPRITE_CLOUD = { sx: 166, sy: 2, sw: 46, sh: 14 };
+const SPRITE_GROUND1 = { sx: 2, sy: 104, sw: 600, sh: 12 };
+const SPRITE_GROUND2 = { sx: 602, sy: 104, sw: 600, sh: 12 };
 
 type Phase = "idle" | "playing" | "gameover";
+type DinoSkin = "classic" | "cool" | "crown" | "robo";
+type GameSpeedMode = "normal" | "turbo";
 
 interface Obstacle {
   type: "cactus_s" | "cactus_l" | "ptero";
@@ -69,14 +62,25 @@ interface Cloud {
   speed: number;
 }
 
-// Retro Sound synthesizer using Web Audio API
-class RetroAudio {
-  private ctx: AudioContext | null = null;
-  public enabled = true;
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
+  color?: string;
+}
 
-  private init() {
+class RetroAudio {
+  ctx: AudioContext | null = null;
+  enabled = true;
+
+  init() {
     if (!this.ctx && typeof window !== "undefined") {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -142,6 +146,51 @@ class RetroAudio {
     }
   }
 
+  powerup() {
+    if (!this.enabled || isAudioMuted()) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      [440, 554.37, 659.25, 880].forEach((freq, i) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.05);
+        gain.gain.setValueAtTime(0.1, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.1);
+      });
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  shieldBreak() {
+    if (!this.enabled || isAudioMuted()) return;
+    this.init();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.16);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch {
+      // Audio fallback
+    }
+  }
+
   gameOver() {
     if (!this.enabled || isAudioMuted()) return;
     this.init();
@@ -178,9 +227,20 @@ export function DinoRun() {
   const [soundOn, setSoundOn] = useState(true);
   const [isDucking, setIsDucking] = useState(false);
 
-  // Core mutable game engine state (prevents React re-renders from killing 60fps canvas performance)
+  // New Upgrades State
+  const [skin, setSkin] = useState<DinoSkin>("classic");
+  const [mode, setMode] = useState<GameSpeedMode>("normal");
+  const [hasShield, setHasShield] = useState(false);
+
+  // Core mutable game engine state
   const engine = useRef({
     phase: "idle" as Phase,
+    skin: "classic" as DinoSkin,
+    mode: "normal" as GameSpeedMode,
+    hasShield: false,
+    shieldItem: null as { x: number; y: number; w: number; h: number } | null,
+    particles: [] as Particle[],
+    shakeTimer: 0,
     dino: {
       x: 50,
       y: GROUND_Y,
@@ -248,10 +308,6 @@ export function DinoRun() {
     let obs: Obstacle;
 
     if (allowPtero && rand < 0.28) {
-      // Pterodactyl has 3 distinct flight altitudes:
-      // High: y = GROUND_Y - 95 (can walk under)
-      // Mid: y = GROUND_Y - 55 (MUST duck under, or jump over)
-      // Low: y = GROUND_Y - 35 (MUST jump over)
       const altRand = Math.random();
       let pteroY = GROUND_Y - 35;
       if (altRand < 0.35) {
@@ -309,44 +365,59 @@ export function DinoRun() {
     s.nextObstacleDistance = Math.floor(Math.random() * (maxGap - minGap + 1)) + minGap;
   };
 
-  // Accurate, forgiving hitboxes
+  // Accurate hitboxes with padding
   const checkCollision = (obs: Obstacle): boolean => {
     const d = engine.current.dino;
 
-    // Dino hitbox
-    let dLeft: number, dRight: number, dTop: number, dBottom: number;
-    if (d.duck && d.grounded) {
-      dLeft = d.x + 6;
-      dRight = d.x + 55;
-      dTop = d.y - 26;
-      dBottom = d.y - 1;
-    } else {
-      dLeft = d.x + 8;
-      dRight = d.x + 38;
-      dTop = d.y - 43;
-      dBottom = d.y - 1;
-    }
+    const dinoW = d.duck && d.grounded ? SPRITE_DINO_DUCK1.sw : SPRITE_DINO_IDLE.sw;
+    const dinoH = d.duck && d.grounded ? SPRITE_DINO_DUCK1.sh : SPRITE_DINO_IDLE.sh;
 
-    // Obstacle hitbox (with inset forgiveness)
-    let oLeft = obs.x + 4;
-    let oRight = obs.x + obs.w - 4;
-    let oTop = obs.y + 4;
-    let oBottom = obs.y + obs.h - 2;
+    const padX = 7;
+    const padY = 6;
+    const dBox = {
+      x: d.x + padX,
+      y: d.y - dinoH + padY,
+      w: dinoW - padX * 2,
+      h: dinoH - padY * 2,
+    };
 
-    if (obs.type === "ptero") {
-      oLeft = obs.x + 8;
-      oRight = obs.x + obs.w - 8;
-      oTop = obs.y + 10;
-      oBottom = obs.y + obs.h - 8;
-    }
+    const obsPadX = obs.type === "ptero" ? 8 : 4;
+    const obsPadY = obs.type === "ptero" ? 8 : 4;
+    const oBox = {
+      x: obs.x + obsPadX,
+      y: obs.y + obsPadY,
+      w: obs.w - obsPadX * 2,
+      h: obs.h - obsPadY * 2,
+    };
 
-    return dLeft < oRight && dRight > oLeft && dTop < oBottom && dBottom > oTop;
+    return (
+      dBox.x < oBox.x + oBox.w &&
+      dBox.x + dBox.w > oBox.x &&
+      dBox.y < oBox.y + oBox.h &&
+      dBox.y + dBox.h > oBox.y
+    );
   };
 
-  // Trigger game over
+  // Check shield item pickup collision
+  const checkShieldPickup = (): boolean => {
+    const s = engine.current;
+    if (!s.shieldItem) return false;
+    const d = s.dino;
+    const dinoH = d.duck && d.grounded ? SPRITE_DINO_DUCK1.sh : SPRITE_DINO_IDLE.sh;
+
+    return (
+      d.x < s.shieldItem.x + s.shieldItem.w &&
+      d.x + d.w > s.shieldItem.x &&
+      d.y - dinoH < s.shieldItem.y + s.shieldItem.h &&
+      d.y > s.shieldItem.y
+    );
+  };
+
+  // Handle Game Over
   const triggerGameOver = () => {
     const s = engine.current;
     s.phase = "gameover";
+    s.shakeTimer = 20;
     setPhase("gameover");
     audioRef.current.gameOver();
 
@@ -358,9 +429,11 @@ export function DinoRun() {
     }
   };
 
-  // Start / restart game
+  // Start / Restart game
   const startGame = useCallback(() => {
     const s = engine.current;
+    const startSpeed = s.mode === "turbo" ? TURBO_SPEED : BASE_SPEED;
+
     s.phase = "playing";
     s.dino = {
       x: 50,
@@ -376,10 +449,14 @@ export function DinoRun() {
     };
     s.ground1X = 0;
     s.ground2X = 600;
-    s.speed = BASE_SPEED;
+    s.speed = startSpeed;
     s.score = 0;
     s.lastMilestone = 0;
     s.obstacles = [];
+    s.particles = [];
+    s.hasShield = false;
+    s.shieldItem = null;
+    s.shakeTimer = 0;
     s.nextObstacleDistance = 350;
     s.nightMode = false;
     resetClouds();
@@ -387,6 +464,7 @@ export function DinoRun() {
     setPhase("playing");
     setScore(0);
     setIsDucking(false);
+    setHasShield(false);
   }, []);
 
   // Jump action
@@ -394,30 +472,39 @@ export function DinoRun() {
     const s = engine.current;
     if (s.phase === "idle" || s.phase === "gameover") {
       startGame();
-      // Also execute jump on start
       s.dino.vy = INITIAL_JUMP_V;
       s.dino.grounded = false;
       s.dino.jumping = true;
       audioRef.current.jump();
       return;
     }
-    if (s.phase !== "playing") return;
 
-    if (s.dino.grounded) {
+    if (s.phase === "playing" && s.dino.grounded) {
       s.dino.vy = INITIAL_JUMP_V;
       s.dino.grounded = false;
       s.dino.jumping = true;
-      s.dino.duck = false;
-      setIsDucking(false);
       audioRef.current.jump();
+
+      // Jump takeoff dust poof
+      for (let i = 0; i < 6; i++) {
+        s.particles.push({
+          x: s.dino.x + 12 + (Math.random() - 0.5) * 15,
+          y: GROUND_Y - 2,
+          vx: (Math.random() - 0.5) * 2.5 - s.speed * 0.2,
+          vy: -Math.random() * 1.8 - 0.5,
+          size: Math.random() * 2.5 + 1.5,
+          alpha: 0.9,
+        });
+      }
     }
   }, [startGame]);
 
-  // Cut jump short when key is released
+  // Release jump early
   const releaseJump = useCallback(() => {
     const s = engine.current;
     if (s.phase === "playing" && s.dino.jumping && s.dino.vy < MIN_JUMP_V) {
       s.dino.vy = MIN_JUMP_V;
+      s.dino.jumping = false;
     }
   }, []);
 
@@ -426,33 +513,43 @@ export function DinoRun() {
     const s = engine.current;
     if (s.phase !== "playing") return;
 
-    if (duck) {
-      s.dino.duck = true;
-      setIsDucking(true);
-      if (!s.dino.grounded) {
-        // Fast drop when pressing down in air
-        s.dino.vy = FAST_DROP_V;
-      }
-    } else {
-      s.dino.duck = false;
-      setIsDucking(false);
+    s.dino.duck = duck;
+    setIsDucking(duck);
+
+    if (duck && !s.dino.grounded) {
+      s.dino.vy = FAST_DROP_V;
     }
   }, []);
 
-  // Main game update loop
-  const update = (dtMs: number) => {
+  // Change Skin
+  const handleSelectSkin = (newSkin: DinoSkin) => {
+    setSkin(newSkin);
+    engine.current.skin = newSkin;
+  };
+
+  // Change Speed Mode
+  const handleSelectMode = (newMode: GameSpeedMode) => {
+    setMode(newMode);
+    engine.current.mode = newMode;
+    if (engine.current.phase === "idle" || engine.current.phase === "gameover") {
+      engine.current.speed = newMode === "turbo" ? TURBO_SPEED : BASE_SPEED;
+    }
+  };
+
+  // Main game update step
+  const update = (dt: number) => {
     const s = engine.current;
     if (s.phase !== "playing") return;
 
-    // Clamp dt to avoid huge jump on tab switch
-    const dt = Math.min(dtMs, 50);
-    const dtScale = dt / 16.67;
+    const dtScale = Math.min(dt / 16.667, 2.0);
 
     // Speed progression
-    s.speed = Math.min(MAX_SPEED, BASE_SPEED + s.score * ACCELERATION);
+    const minSpeed = s.mode === "turbo" ? TURBO_SPEED : BASE_SPEED;
+    s.speed = Math.min(MAX_SPEED, minSpeed + s.score * ACCELERATION);
 
-    // Score accumulation
-    s.score += s.speed * dt * 0.005;
+    // Score progression (Turbo mode earns x1.5 points!)
+    const scoreRate = s.mode === "turbo" ? 0.0075 : 0.005;
+    s.score += s.speed * dt * scoreRate;
     const currentScoreInt = Math.floor(s.score);
     setScore(currentScoreInt);
 
@@ -465,12 +562,24 @@ export function DinoRun() {
     // Day / Night cycle (switches every 700 points)
     s.nightMode = Math.floor(currentScoreInt / 700) % 2 === 1;
 
-    // Dino leg animation (switch frame every 120ms when grounded)
+    // Dino leg animation
     if (s.dino.grounded) {
       s.dino.legTimer += dt;
       if (s.dino.legTimer > 110) {
         s.dino.legTimer = 0;
         s.dino.legFrame = (s.dino.legFrame + 1) % 2;
+      }
+
+      // Footstep dust particles when running
+      if (Math.random() < 0.35) {
+        s.particles.push({
+          x: s.dino.x + 8 + Math.random() * 8,
+          y: GROUND_Y - 2,
+          vx: -s.speed * 0.35 - Math.random() * 1.5,
+          vy: -Math.random() * 1.0,
+          size: Math.random() * 2.2 + 1.2,
+          alpha: 0.8,
+        });
       }
     }
 
@@ -486,18 +595,14 @@ export function DinoRun() {
       }
     }
 
-    // Ground scrolling (100% seamless 2-panel tiling)
+    // Update ground
     const groundMove = s.speed * dtScale;
     s.ground1X -= groundMove;
     s.ground2X -= groundMove;
-    if (s.ground1X <= -600) {
-      s.ground1X = s.ground2X + 600;
-    }
-    if (s.ground2X <= -600) {
-      s.ground2X = s.ground1X + 600;
-    }
+    if (s.ground1X <= -600) s.ground1X = s.ground2X + 600;
+    if (s.ground2X <= -600) s.ground2X = s.ground1X + 600;
 
-    // Cloud parallax
+    // Update clouds
     s.clouds.forEach((cloud) => {
       cloud.x -= cloud.speed * dtScale;
       if (cloud.x < -60) {
@@ -505,6 +610,42 @@ export function DinoRun() {
         cloud.y = 25 + Math.random() * 65;
       }
     });
+
+    // Spawn Shield item occasionally
+    if (!s.hasShield && !s.shieldItem && s.score > 180 && Math.random() < 0.003) {
+      s.shieldItem = {
+        x: CANVAS_W + 30,
+        y: GROUND_Y - 45,
+        w: 24,
+        h: 24,
+      };
+    }
+
+    // Update Shield item
+    if (s.shieldItem) {
+      s.shieldItem.x -= s.speed * dtScale;
+      if (checkShieldPickup()) {
+        s.hasShield = true;
+        setHasShield(true);
+        s.shieldItem = null;
+        audioRef.current.powerup();
+
+        // Sparkle particles
+        for (let k = 0; k < 12; k++) {
+          s.particles.push({
+            x: s.dino.x + 20,
+            y: s.dino.y - 25,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            size: 3,
+            alpha: 1,
+            color: "#4285F4",
+          });
+        }
+      } else if (s.shieldItem.x < -40) {
+        s.shieldItem = null;
+      }
+    }
 
     // Spawn obstacles
     trySpawnObstacle();
@@ -526,6 +667,29 @@ export function DinoRun() {
 
       // Check collision
       if (checkCollision(obs)) {
+        if (s.hasShield) {
+          // Shield absorbs fatal hit!
+          s.hasShield = false;
+          setHasShield(false);
+          s.obstacles.splice(i, 1);
+          s.shakeTimer = 12;
+          audioRef.current.shieldBreak();
+
+          // Break particles
+          for (let k = 0; k < 15; k++) {
+            s.particles.push({
+              x: obs.x + obs.w / 2,
+              y: obs.y + obs.h / 2,
+              vx: (Math.random() - 0.5) * 7,
+              vy: (Math.random() - 0.5) * 7,
+              size: 3.5,
+              alpha: 1,
+              color: "#34A853",
+            });
+          }
+          continue;
+        }
+
         triggerGameOver();
         return;
       }
@@ -535,14 +699,31 @@ export function DinoRun() {
         s.obstacles.splice(i, 1);
       }
     }
+
+    // Update particles
+    for (let i = s.particles.length - 1; i >= 0; i--) {
+      const p = s.particles[i];
+      p.x += p.vx * dtScale;
+      p.y += p.vy * dtScale;
+      p.alpha -= 0.03 * dtScale;
+      if (p.alpha <= 0 || p.x < -30) {
+        s.particles.splice(i, 1);
+      }
+    }
+
+    // Update screen shake
+    if (s.shakeTimer > 0) {
+      s.shakeTimer -= dtScale;
+    }
   };
 
-  // Render canvas
+  // Draw frame to canvas
   const draw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
     const img = spriteRef.current;
     if (!img) return;
 
@@ -552,13 +733,21 @@ export function DinoRun() {
     const isDark = s.isDarkTheme || s.nightMode;
     const bgColor = isDark ? "#202124" : "#f8f9fa";
 
+    ctx.save();
+
+    // Screen Shake offset
+    if (s.shakeTimer > 0) {
+      const shakeX = (Math.random() - 0.5) * 6;
+      const shakeY = (Math.random() - 0.5) * 6;
+      ctx.translate(shakeX, shakeY);
+    }
+
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
     // Draw Night Sky: Crescent Moon & Twinkling Stars when in Night Mode
     if (s.nightMode) {
       ctx.save();
-      // Stars
       const stars = [
         { x: 70, y: 22, s: 2 },
         { x: 140, y: 48, s: 1.5 },
@@ -609,73 +798,136 @@ export function DinoRun() {
 
     // 4. Draw Dino
     const d = s.dino;
+    let dinoTop = d.y - SPRITE_DINO_IDLE.sh;
+
     if (s.phase === "gameover") {
       ctx.drawImage(img, SPRITE_DINO_DEAD.sx, SPRITE_DINO_DEAD.sy, SPRITE_DINO_DEAD.sw, SPRITE_DINO_DEAD.sh, d.x, d.y - SPRITE_DINO_DEAD.sh, SPRITE_DINO_DEAD.sw, SPRITE_DINO_DEAD.sh);
+      dinoTop = d.y - SPRITE_DINO_DEAD.sh;
     } else if (d.duck && d.grounded) {
       const duckSprite = d.legFrame === 0 ? SPRITE_DINO_DUCK1 : SPRITE_DINO_DUCK2;
       ctx.drawImage(img, duckSprite.sx, duckSprite.sy, duckSprite.sw, duckSprite.sh, d.x, d.y - duckSprite.sh, duckSprite.sw, duckSprite.sh);
+      dinoTop = d.y - duckSprite.sh;
     } else if (!d.grounded) {
-      // Jump pose
       ctx.drawImage(img, SPRITE_DINO_IDLE.sx, SPRITE_DINO_IDLE.sy, SPRITE_DINO_IDLE.sw, SPRITE_DINO_IDLE.sh, d.x, d.y - SPRITE_DINO_IDLE.sh, SPRITE_DINO_IDLE.sw, SPRITE_DINO_IDLE.sh);
     } else if (s.phase === "idle") {
       ctx.drawImage(img, SPRITE_DINO_IDLE.sx, SPRITE_DINO_IDLE.sy, SPRITE_DINO_IDLE.sw, SPRITE_DINO_IDLE.sh, d.x, d.y - SPRITE_DINO_IDLE.sh, SPRITE_DINO_IDLE.sw, SPRITE_DINO_IDLE.sh);
     } else {
-      // Running pose
       const runSprite = d.legFrame === 0 ? SPRITE_DINO_RUN1 : SPRITE_DINO_RUN2;
       ctx.drawImage(img, runSprite.sx, runSprite.sy, runSprite.sw, runSprite.sh, d.x, d.y - runSprite.sh, runSprite.sw, runSprite.sh);
     }
 
-    // Reset filter
     ctx.filter = "none";
+
+    // 5. Draw Dino Skins Customization
+    if (s.skin === "cool") {
+      // Pixel Aviator Sunglasses
+      ctx.fillStyle = "#111111";
+      const sx = d.duck && d.grounded ? d.x + 36 : d.x + 22;
+      const sy = dinoTop + (d.duck && d.grounded ? 8 : 10);
+      ctx.fillRect(sx, sy, 14, 6);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(sx + 2, sy + 1, 2, 2);
+      ctx.fillRect(sx + 8, sy + 1, 2, 2);
+    } else if (s.skin === "crown") {
+      // Golden Crown with Ruby
+      const cx = d.duck && d.grounded ? d.x + 28 : d.x + 16;
+      const cy = dinoTop - 8;
+      ctx.fillStyle = "#FBBC04";
+      ctx.fillRect(cx, cy, 14, 6);
+      ctx.fillRect(cx - 1, cy - 3, 3, 3);
+      ctx.fillRect(cx + 5.5, cy - 5, 3, 3);
+      ctx.fillRect(cx + 12, cy - 3, 3, 3);
+      ctx.fillStyle = "#EA4335";
+      ctx.fillRect(cx + 6, cy + 2, 2, 2);
+    } else if (s.skin === "robo") {
+      // Android Antenna & Cyan Visor
+      const rx = d.duck && d.grounded ? d.x + 28 : d.x + 16;
+      const ry = dinoTop;
+      ctx.fillStyle = "#34A853";
+      ctx.fillRect(rx + 4, ry - 6, 2, 6);
+      ctx.fillRect(rx + 2, ry - 8, 6, 2);
+      ctx.fillStyle = "#4285F4";
+      const vx = d.duck && d.grounded ? d.x + 34 : d.x + 20;
+      ctx.fillRect(vx, ry + (d.duck && d.grounded ? 8 : 10), 16, 5);
+    }
+
+    // 6. Draw Energy Shield Power-Up Item on Track
+    if (s.shieldItem) {
+      const itemY = s.shieldItem.y + Math.sin(Date.now() * 0.006) * 4;
+      ctx.save();
+      ctx.fillStyle = "#4285F4";
+      ctx.beginPath();
+      ctx.arc(s.shieldItem.x + 12, itemY + 12, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(s.shieldItem.x + 8, itemY + 8, 8, 8);
+      ctx.restore();
+    }
+
+    // 7. Draw Active Shield Bubble around Dino
+    if (s.hasShield) {
+      ctx.save();
+      const pulse = Math.sin(Date.now() * 0.008) * 2;
+      const bubbleW = (d.duck && d.grounded ? 38 : 30) + pulse;
+      const bubbleH = (d.duck && d.grounded ? 24 : 30) + pulse;
+      const centerX = d.x + (d.duck && d.grounded ? 28 : 22);
+      const centerY = d.y - (d.duck && d.grounded ? 15 : 24);
+
+      ctx.strokeStyle = "#4285F4";
+      ctx.lineWidth = 2.5;
+      ctx.fillStyle = "rgba(66, 133, 244, 0.2)";
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, bubbleW, bubbleH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 8. Draw Dust & Spark Particles
+    s.particles.forEach((p) => {
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color || (isDark ? "#ffffff" : "#535353");
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.restore();
+    });
+
+    ctx.restore();
   };
 
-  // Single leak-free RAF game loop
+  // Main game loop (RAF)
   useEffect(() => {
-    let active = true;
-
+    let animId = 0;
     const loop = (timestamp: number) => {
-      if (!active) return;
-      if (!engine.current.lastTime) {
-        engine.current.lastTime = timestamp;
-      }
-      const dt = timestamp - engine.current.lastTime;
-      engine.current.lastTime = timestamp;
+      const s = engine.current;
+      if (!s.lastTime) s.lastTime = timestamp;
+      const dt = timestamp - s.lastTime;
+      s.lastTime = timestamp;
 
       update(dt);
       draw();
 
-      engine.current.rafId = requestAnimationFrame(loop);
+      animId = requestAnimationFrame(loop);
     };
 
-    engine.current.rafId = requestAnimationFrame(loop);
-
-    const currentEngine = engine.current;
-    return () => {
-      active = false;
-      cancelAnimationFrame(currentEngine.rafId);
-    };
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Setup sprite & canvas DPI scaling
+  // Setup HiDPI Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Retina / High-DPI setup
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = CANVAS_W * dpr;
     canvas.height = CANVAS_H * dpr;
 
     const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.scale(dpr, dpr);
-      ctx.imageSmoothingEnabled = false;
-    }
+    if (ctx) ctx.scale(dpr, dpr);
 
-    // Load sprite image
     const img = new Image();
-    img.src = SPRITE_URL;
+    img.src = "/assets/dino/offline-sprite-2x.png";
     img.onload = () => {
       spriteRef.current = img;
       resetClouds();
@@ -683,12 +935,10 @@ export function DinoRun() {
       draw();
     };
 
-    // Load persistent best score
     const savedBest = Number(localStorage.getItem("dino-run-best") ?? 0);
     setBest(savedBest);
     engine.current.best = savedBest;
 
-    // Observer for dark mode change on html tag
     const observer = new MutationObserver(() => updateThemeCheck());
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
@@ -732,8 +982,63 @@ export function DinoRun() {
   }, [doJump, releaseJump, setDucking, startGame]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-4 select-none">
-      {/* Top Header: Score, Best Score, Sound Toggle */}
+    <div className="flex w-full flex-col items-center gap-3 select-none">
+      {/* Customization Bar: Speed Mode & Skins */}
+      <div className="flex flex-wrap items-center justify-between w-full max-w-3xl gap-2 px-1 text-xs">
+        {/* Speed Mode Selector */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-muted mr-1">Chế độ:</span>
+          <button
+            type="button"
+            onClick={() => handleSelectMode("normal")}
+            className={`rounded-full px-3 py-1 font-bold transition-all active:scale-95 ${
+              mode === "normal"
+                ? "bg-primary text-on-primary shadow-sm"
+                : "border border-border bg-surface text-muted hover:bg-surface-hover"
+            }`}
+          >
+            Cổ điển
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectMode("turbo")}
+            className={`rounded-full px-3 py-1 font-bold transition-all active:scale-95 flex items-center gap-1 ${
+              mode === "turbo"
+                ? "bg-google-red text-white shadow-md"
+                : "border border-border bg-surface text-muted hover:bg-surface-hover"
+            }`}
+          >
+            <Zap className="h-3 w-3 fill-current" />
+            Turbo (x1.5 Điểm)
+          </button>
+        </div>
+
+        {/* Skin Selector */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-muted mr-1">Ngoại trang:</span>
+          {[
+            { id: "classic", label: "🦖 Chuẩn" },
+            { id: "cool", label: "🕶️ Kính râm" },
+            { id: "crown", label: "👑 Hoàng gia" },
+            { id: "robo", label: "🤖 Robot" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleSelectSkin(item.id as DinoSkin)}
+              className={`rounded-full px-2.5 py-1 font-bold transition-all active:scale-95 ${
+                skin === item.id
+                  ? "bg-google-blue text-white shadow-sm"
+                  : "border border-border bg-surface text-muted hover:bg-surface-hover"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Header: Score, Best Score, Shield Badge, Sound Toggle */}
       <div className="flex w-full max-w-3xl items-center justify-between px-2">
         <div className="flex items-center gap-6">
           <div className="text-left">
@@ -748,12 +1053,20 @@ export function DinoRun() {
               HI {String(best).padStart(5, "0")}
             </div>
           </div>
+
+          {/* Active Shield Power-Up Badge */}
+          {hasShield && (
+            <div className="flex items-center gap-1.5 rounded-full bg-google-blue/15 border border-google-blue/40 px-3 py-1 text-xs font-bold text-google-blue animate-pulse">
+              <Shield className="h-3.5 w-3.5" />
+              <span>Khiên bảo hộ: ĐANG BẬT</span>
+            </div>
+          )}
         </div>
 
         <button
           onClick={toggleSound}
           aria-label={soundOn ? "Tắt âm thanh" : "Bật âm thanh"}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface transition-colors hover:bg-surface-hover active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface transition-colors hover:bg-surface-hover active:scale-95 shadow-sm"
         >
           {soundOn ? (
             <Volume2 className="h-5 w-5 text-google-green" />
@@ -764,7 +1077,7 @@ export function DinoRun() {
       </div>
 
       {/* Canvas Game Area */}
-      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border shadow-sm">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border shadow-md">
         <canvas
           ref={canvasRef}
           style={{ width: "100%", height: "auto", aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }}
@@ -782,7 +1095,7 @@ export function DinoRun() {
                 e.stopPropagation();
                 doJump();
               }}
-              className="pointer-events-auto flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-base font-semibold text-on-primary shadow-md transition-all hover:scale-105 active:scale-95"
+              className="pointer-events-auto flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-base font-semibold text-on-primary shadow-xl transition-all hover:scale-105 active:scale-95"
             >
               <Play className="h-5 w-5 fill-current" />
               Bắt đầu chơi
@@ -795,13 +1108,13 @@ export function DinoRun() {
 
         {/* Game Over Overlay */}
         {phase === "gameover" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-[2px] transition-opacity">
-            <div className="rounded-full bg-google-red/10 px-6 py-2 text-sm font-bold text-google-red mb-3">
-              GAME OVER — Đạt {score} điểm
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] transition-opacity">
+            <div className="rounded-full bg-google-red/15 border border-google-red/30 px-6 py-2 text-sm font-bold text-google-red mb-3">
+              GAME OVER — Đạt {score} điểm {mode === "turbo" && "(Chế độ Turbo)"}
             </div>
             <button
               onClick={startGame}
-              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-base font-semibold text-on-primary shadow-lg transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-base font-semibold text-on-primary shadow-xl transition-all hover:scale-105 active:scale-95"
             >
               <RotateCcw className="h-5 w-5" />
               Chơi lại (SPACE)
@@ -845,8 +1158,13 @@ export function DinoRun() {
             e.preventDefault();
             doJump();
           }}
-          onClick={doJump}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-on-primary shadow-md transition-all active:scale-95"
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            releaseJump();
+          }}
+          onMouseDown={doJump}
+          onMouseUp={releaseJump}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-semibold text-on-primary shadow-md active:scale-95"
         >
           <ArrowUp className="h-6 w-6" />
           Nhảy
