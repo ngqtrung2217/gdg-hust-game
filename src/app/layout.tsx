@@ -17,9 +17,11 @@ export const metadata: Metadata = {
     template: "%s | GDG Game Arcade",
   },
   description:
-    "Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo ngôn ngữ thiết kế Google Material 3 của GDG on Campus. Chơi ngay trên trình duyệt và di động!",
+    "Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG-HUST. Chơi ngay trên trình duyệt và di động!",
   keywords: [
     "GDG",
+    "GDG-HUST",
+    "GDG on Campus HUST",
     "Google Developer Groups",
     "Game Arcade",
     "Tetris",
@@ -29,7 +31,7 @@ export const metadata: Metadata = {
     "Dino Run",
     "Mini Game",
   ],
-  authors: [{ name: "GDG on Campus" }],
+  authors: [{ name: "GDG-HUST" }],
   openGraph: {
     title: "GDG Game Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
     description:

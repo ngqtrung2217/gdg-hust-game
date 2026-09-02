@@ -32,13 +32,18 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 h-16 border-b border-border bg-background/80 backdrop-blur select-none">
       <div className="flex h-full items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-bold tracking-tight">
-            <span className="text-google-blue">G</span>
-            <span className="text-google-red">D</span>
-            <span className="text-google-yellow">G</span>
-            <span className="text-google-green"> Arcade</span>
-          </span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="flex flex-col">
+            <span className="text-xl sm:text-2xl font-black tracking-tight leading-none">
+              <span className="text-google-blue">G</span>
+              <span className="text-google-red">D</span>
+              <span className="text-google-yellow">G</span>
+              <span className="text-google-green"> Arcade</span>
+            </span>
+            <span className="text-[10px] font-semibold text-muted tracking-wide mt-0.5">
+              Phát triển bởi <strong className="text-foreground">GDG-HUST</strong>
+            </span>
+          </div>
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
           <Link

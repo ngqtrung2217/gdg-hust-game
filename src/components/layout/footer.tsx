@@ -14,7 +14,7 @@ export function Footer() {
             <Sparkles className="h-3.5 w-3.5 text-google-yellow" />
           </div>
           <p className="text-[11px] text-muted">
-            Tổ hợp 9 trò chơi trí tuệ & phản xạ theo ngôn ngữ thiết kế Google Material Design 3.
+            Tổ hợp 9 trò chơi trí tuệ & phản xạ theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG-HUST.
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export function Footer() {
 
         <div className="flex items-center gap-1 text-[11px] text-muted">
           <span>Phát triển bởi</span>
-          <span className="font-bold text-foreground">GDG on Campus</span>
+          <span className="font-bold text-foreground">GDG-HUST</span>
           <Heart className="h-3 w-3 text-google-red fill-current" />
         </div>
       </div>
