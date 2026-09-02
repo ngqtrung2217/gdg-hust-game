@@ -20,26 +20,36 @@ const TURBO_SPEED = 10.2;
 const MAX_SPEED = 13.5;
 const ACCELERATION = 0.001;
 
-// Sprite Coordinates in offline-sprite-2x.png (DPR 2x standard)
-const SPRITE_DINO_IDLE = { sx: 1338, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_RUN1 = { sx: 1514, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_RUN2 = { sx: 1558, sy: 2, sw: 44, sh: 47 };
-const SPRITE_DINO_DUCK1 = { sx: 1866, sy: 19, sw: 59, sh: 30 };
-const SPRITE_DINO_DUCK2 = { sx: 1925, sy: 19, sw: 59, sh: 30 };
-const SPRITE_DINO_DEAD = { sx: 1690, sy: 2, sw: 44, sh: 47 };
+// Sprite Sheet details (/games/dino/sprite.png - 1233x68)
+const SPRITE_URL = "/games/dino/sprite.png";
 
-const SPRITE_CACTUS_S1 = { sx: 446, sy: 2, sw: 17, sh: 35 };
-const SPRITE_CACTUS_S2 = { sx: 480, sy: 2, sw: 34, sh: 35 };
-const SPRITE_CACTUS_S3 = { sx: 514, sy: 2, sw: 51, sh: 35 };
-const SPRITE_CACTUS_L1 = { sx: 652, sy: 2, sw: 25, sh: 50 };
-const SPRITE_CACTUS_L2 = { sx: 677, sy: 2, sw: 50, sh: 50 };
+// Standing Dino: (44x47)
+const SPRITE_DINO_IDLE = { sx: 848, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_RUN1 = { sx: 936, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_RUN2 = { sx: 980, sy: 2, sw: 44, sh: 47 };
+const SPRITE_DINO_DEAD = { sx: 1068, sy: 2, sw: 44, sh: 47 };
 
-const SPRITE_PTERO1 = { sx: 260, sy: 2, sw: 46, sh: 40 };
-const SPRITE_PTERO2 = { sx: 306, sy: 2, sw: 46, sh: 40 };
+// Ducking Dino: (59x30)
+const SPRITE_DINO_DUCK1 = { sx: 1112, sy: 19, sw: 59, sh: 30 };
+const SPRITE_DINO_DUCK2 = { sx: 1171, sy: 19, sw: 59, sh: 30 };
 
-const SPRITE_CLOUD = { sx: 166, sy: 2, sw: 46, sh: 14 };
-const SPRITE_GROUND1 = { sx: 2, sy: 104, sw: 600, sh: 12 };
-const SPRITE_GROUND2 = { sx: 602, sy: 104, sw: 600, sh: 12 };
+// Cacti
+const SPRITE_CACTUS_S1 = { sx: 228, sy: 2, sw: 17, sh: 35 };
+const SPRITE_CACTUS_S2 = { sx: 228, sy: 2, sw: 34, sh: 35 };
+const SPRITE_CACTUS_S3 = { sx: 228, sy: 2, sw: 51, sh: 35 };
+const SPRITE_CACTUS_L1 = { sx: 332, sy: 2, sw: 25, sh: 50 };
+const SPRITE_CACTUS_L2 = { sx: 332, sy: 2, sw: 50, sh: 50 };
+
+// Pterodactyl: (46x40)
+const SPRITE_PTERO1 = { sx: 134, sy: 2, sw: 46, sh: 40 };
+const SPRITE_PTERO2 = { sx: 180, sy: 2, sw: 46, sh: 40 };
+
+// Clouds: (46x14)
+const SPRITE_CLOUD = { sx: 86, sy: 2, sw: 46, sh: 14 };
+
+// Ground segments: (600x12)
+const SPRITE_GROUND1 = { sx: 2, sy: 54, sw: 600, sh: 12 };
+const SPRITE_GROUND2 = { sx: 602, sy: 54, sw: 600, sh: 12 };
 
 type Phase = "idle" | "playing" | "gameover";
 type DinoSkin = "classic" | "cool" | "crown" | "robo";
@@ -735,6 +745,9 @@ export function DinoRun() {
     const isDark = s.isDarkTheme || s.nightMode;
     const bgColor = isDark ? "#202124" : "#f8f9fa";
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     ctx.save();
 
     // Screen Shake offset
@@ -929,13 +942,17 @@ export function DinoRun() {
     if (ctx) ctx.scale(dpr, dpr);
 
     const img = new Image();
-    img.src = "/assets/dino/offline-sprite-2x.png";
-    img.onload = () => {
+    img.src = SPRITE_URL;
+    const handleLoad = () => {
       spriteRef.current = img;
       resetClouds();
       updateThemeCheck();
       draw();
     };
+    img.onload = handleLoad;
+    if (img.complete) {
+      handleLoad();
+    }
 
     const savedBest = Number(localStorage.getItem("dino-run-best") ?? 0);
     setBest(savedBest);
