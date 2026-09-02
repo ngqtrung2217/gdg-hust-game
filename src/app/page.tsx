@@ -61,7 +61,15 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 select-none">
-      <h1 className="sr-only">GDG Arcade - 9 Trò Chơi Trí Tuệ & Phản Xạ</h1>
+      {/* Big Title Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight">
+          <span className="text-google-blue">G</span>
+          <span className="text-google-red">D</span>
+          <span className="text-google-yellow">G</span>
+          <span className="text-google-green"> Arcade</span>
+        </h1>
+      </div>
 
       {/* 9 Games Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
