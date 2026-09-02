@@ -7,8 +7,6 @@ import {
   Trophy,
   Sparkles,
   Gamepad2,
-  Medal,
-  Flame,
   Search,
 } from "lucide-react";
 import { GAMES } from "@/lib/games";
@@ -68,10 +66,6 @@ export default function Home() {
     setBestScores(scores);
   }, []);
 
-  const playedCount = useMemo(() => {
-    return Object.keys(bestScores).length;
-  }, [bestScores]);
-
   const filteredGames = useMemo(() => {
     if (!searchQuery.trim()) return GAMES;
     const q = searchQuery.toLowerCase();
@@ -119,31 +113,6 @@ export default function Home() {
             <Trophy className="h-4 w-4 text-google-yellow" />
             Xem Bảng xếp hạng
           </Link>
-        </div>
-
-        {/* Player Personal Progress Widget */}
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full max-w-xl rounded-2xl border border-border bg-surface/80 p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-google-yellow/10 text-google-yellow">
-              <Medal className="h-5 w-5" />
-            </span>
-            <div>
-              <div className="text-xs font-bold text-foreground">
-                Tiến độ của bạn: <span className="text-google-blue">{playedCount}/9 trò chơi</span> đã ghi điểm
-              </div>
-              <div className="mt-1.5 h-2 w-48 sm:w-64 rounded-full bg-surface-hover overflow-hidden border border-border/50">
-                <div
-                  className="h-full bg-gradient-to-r from-google-blue via-google-yellow to-google-green transition-all duration-500 rounded-full"
-                  style={{ width: `${(playedCount / 9) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 text-xs font-bold text-muted sm:text-right">
-            <Flame className="h-4 w-4 text-google-red" />
-            <span>{playedCount === 9 ? "Hoàn thành 100%!" : `Còn ${9 - playedCount} game`}</span>
-          </div>
         </div>
       </section>
 
