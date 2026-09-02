@@ -61,21 +61,31 @@ export function placeMines(
   const rows = board.length;
   const cols = board[0].length;
   const positions: [number, number][] = [];
+  const is3x3Safe = rows * cols - 9 >= mines;
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (r === safeRow && c === safeCol) continue;
+      if (is3x3Safe) {
+        if (Math.abs(r - safeRow) <= 1 && Math.abs(c - safeCol) <= 1) continue;
+      } else {
+        if (r === safeRow && c === safeCol) continue;
+      }
       positions.push([r, c]);
     }
   }
+
   for (let i = positions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [positions[i], positions[j]] = [positions[j], positions[i]];
   }
+
   const next = board.map((row) => row.map((cell) => ({ ...cell })));
-  for (let i = 0; i < mines; i++) {
+  const totalMines = Math.min(mines, positions.length);
+  for (let i = 0; i < totalMines; i++) {
     const [r, c] = positions[i];
     next[r][c].mine = true;
   }
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       next[r][c].adjacent = countAdjacent(next, r, c);
@@ -141,4 +151,40 @@ export function countFlags(board: Board): number {
     (sum, row) => sum + row.filter((cell) => cell.state === "flagged").length,
     0
   );
+}
+
+// Chord clicking: reveal unflagged neighbors if flagged neighbors count equals adjacent mines
+export function chordCell(board: Board, row: number, col: number): Board {
+  const cell = board[row][col];
+  if (cell.state !== "revealed" || cell.adjacent <= 0) return board;
+
+  let flaggedCount = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr >= 0 && nr < board.length && nc >= 0 && nc < board[0].length) {
+        if (board[nr][nc].state === "flagged") flaggedCount++;
+      }
+    }
+  }
+
+  if (flaggedCount === cell.adjacent) {
+    let next = board;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = row + dr;
+        const nc = col + dc;
+        if (nr >= 0 && nr < board.length && nc >= 0 && nc < board[0].length) {
+          if (next[nr][nc].state === "hidden") {
+            next = revealCell(next, nr, nc);
+          }
+        }
+      }
+    }
+    return next;
+  }
+  return board;
 }

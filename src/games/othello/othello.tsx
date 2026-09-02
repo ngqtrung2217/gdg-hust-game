@@ -14,6 +14,8 @@ import {
   type Board,
   type Disc,
 } from "./logic";
+import { isAudioMuted } from "@/lib/audio";
+import { triggerConfetti } from "@/lib/confetti";
 
 type GameMode = "pve" | "pvp";
 
@@ -53,7 +55,7 @@ export function Othello() {
 
   // Audio effects
   const playClickSound = () => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isAudioMuted()) return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
@@ -75,7 +77,7 @@ export function Othello() {
   };
 
   const playWinSound = () => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isAudioMuted()) return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
@@ -113,6 +115,7 @@ export function Othello() {
       const { B, R } = discCounts;
       if (B > R) {
         playWinSound();
+        triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.4 } });
         const nextWins = bestWins + 1;
         setBestWins(nextWins);
         localStorage.setItem("othello-best", String(nextWins));

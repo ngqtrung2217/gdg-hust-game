@@ -317,6 +317,7 @@ export function Tetris() {
       if (res) {
         setCurrentShape(res.newShape);
         setPosX(res.newX);
+        setPosY(res.newY);
         playSound("rotate");
       }
     },
@@ -324,15 +325,20 @@ export function Tetris() {
   );
 
   // Soft drop (1 step down)
-  const softDrop = useCallback(() => {
-    if (phase !== "playing" || !currentShape.length) return;
-    if (isValidMove(board, currentShape, posX, posY + 1)) {
-      setPosY((y) => y + 1);
-      setScore((s) => s + 1);
-    } else {
-      lockAndProceed();
-    }
-  }, [board, currentShape, lockAndProceed, phase, posX, posY]);
+  const softDrop = useCallback(
+    (isManual = false) => {
+      if (phase !== "playing" || !currentShape.length) return;
+      if (isValidMove(board, currentShape, posX, posY + 1)) {
+        setPosY((y) => y + 1);
+        if (isManual) {
+          setScore((s) => s + 1);
+        }
+      } else {
+        lockAndProceed();
+      }
+    },
+    [board, currentShape, lockAndProceed, phase, posX, posY]
+  );
 
   // Hard drop (slam to bottom instantly)
   const hardDrop = useCallback(() => {
@@ -400,7 +406,7 @@ export function Tetris() {
           moveHorizontal(1);
         } else if (e.code === "ArrowDown" || e.code === "KeyS") {
           e.preventDefault();
-          softDrop();
+          softDrop(true);
         } else if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "KeyX") {
           e.preventDefault();
           rotateCurrent(true);
@@ -784,7 +790,7 @@ export function Tetris() {
           </button>
           <button
             onMouseDown={(e) => e.preventDefault()}
-            onClick={softDrop}
+            onClick={() => softDrop(true)}
             className="flex-1 flex items-center justify-center rounded-xl bg-surface border border-border py-3.5 shadow-sm active:scale-95"
           >
             <ArrowDown className="h-5 w-5 text-foreground" />

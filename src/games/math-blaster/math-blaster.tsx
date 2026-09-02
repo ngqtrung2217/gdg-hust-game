@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Zap, Timer, Trophy, Flame } from "lucide-react";
 import { generateQuestion, getMultiplier, type MathQuestion } from "./logic";
 import { isAudioMuted } from "@/lib/audio";
+import { triggerConfetti } from "@/lib/confetti";
 
 const INITIAL_TIME = 25.0; // 25 seconds
 const MAX_TIME = 35.0;
@@ -102,6 +103,7 @@ export function MathBlaster() {
       setBestScore((currentBest) => {
         if (currentScore > currentBest) {
           localStorage.setItem("math-blaster-best", String(currentScore));
+          triggerConfetti({ particleCount: 120, spread: 80, origin: { x: 0.5, y: 0.4 } });
           return currentScore;
         }
         return currentBest;

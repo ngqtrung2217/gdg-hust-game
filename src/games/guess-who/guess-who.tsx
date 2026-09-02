@@ -38,6 +38,7 @@ import {
   pickRandomTarget,
   type AnswerResult,
 } from "./logic";
+import { isAudioMuted } from "@/lib/audio";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Sparkles,
@@ -92,7 +93,7 @@ export function GuessWho() {
 
   // Web Audio card flip sound
   const playCardSound = useCallback((down = true) => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isAudioMuted()) return;
     try {
       const AudioCtx =
         window.AudioContext ||

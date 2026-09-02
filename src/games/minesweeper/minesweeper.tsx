@@ -7,6 +7,7 @@ import { isAudioMuted } from "@/lib/audio";
 import {
   DIFFICULTIES,
   checkWin,
+  chordCell,
   countFlags,
   createEmptyBoard,
   placeMines,
@@ -193,14 +194,65 @@ export function Minesweeper() {
     if (status !== "playing") return;
     if (board[row][col].state === "flagged") return;
 
-    if (!minesPlaced) {
-      setBoard((b) => placeMines(b, difficulty.mines, row, col));
-      setMinesPlaced(true);
-      startTimer();
+    // Chord clicking on already-revealed cell with satisfied flags
+    if (board[row][col].state === "revealed") {
+      if (board[row][col].adjacent > 0) {
+        setBoard((prevBoard) => {
+          const next = chordCell(prevBoard, row, col);
+          if (next === prevBoard) return prevBoard;
+
+          // Check if any revealed cell is a mine
+          let hitMine = false;
+          for (let r = 0; r < next.length; r++) {
+            for (let c = 0; c < next[0].length; c++) {
+              if (next[r][c].state === "revealed" && next[r][c].mine) {
+                hitMine = true;
+                break;
+              }
+            }
+            if (hitMine) break;
+          }
+
+          if (hitMine) {
+            setStatus("lost");
+            stopTimer();
+            playSound("explode");
+            return revealAllMines(next);
+          }
+
+          playSound("dig");
+
+          if (checkWin(next)) {
+            setStatus("won");
+            stopTimer();
+            playSound("win");
+            triggerConfetti({ particleCount: 140, spread: 90, origin: { x: 0.5, y: 0.4 } });
+            setTime((curTime) => {
+              setBestTime((prev) => {
+                if (prev === 0 || (curTime > 0 && curTime < prev)) {
+                  localStorage.setItem("minesweeper-best", String(curTime));
+                  return curTime;
+                }
+                return prev;
+              });
+              return curTime;
+            });
+          }
+          return next;
+        });
+      }
+      return;
     }
 
-    setBoard((b) => {
-      const next = revealCell(b, row, col);
+    setBoard((prevBoard) => {
+      let currentBoard = prevBoard;
+      if (!minesPlaced) {
+        currentBoard = placeMines(prevBoard, difficulty.mines, row, col);
+        setMinesPlaced(true);
+        startTimer();
+      }
+
+      const next = revealCell(currentBoard, row, col);
       if (next[row][col].mine) {
         setStatus("lost");
         stopTimer();

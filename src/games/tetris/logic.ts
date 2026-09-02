@@ -148,20 +148,32 @@ export function isValidMove(
   return true;
 }
 
-// Rotate with wall kicks (try standard, then kick left, right, etc.)
+// Rotate with wall & floor kicks (try standard, then horizontal and vertical kicks)
 export function tryRotate(
   board: BoardMatrix,
   currentShape: number[][],
   posX: number,
   posY: number,
   clockwise = true
-): { newShape: number[][]; newX: number } | null {
+): { newShape: number[][]; newX: number; newY: number } | null {
   const rotated = rotateMatrix(currentShape, clockwise);
-  const kicks = [0, -1, 1, -2, 2];
+  const kicks = [
+    [0, 0],
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [-1, -1],
+    [1, -1],
+    [0, -2],
+    [-1, -2],
+    [1, -2],
+    [-2, 0],
+    [2, 0],
+  ];
 
-  for (const kick of kicks) {
-    if (isValidMove(board, rotated, posX + kick, posY)) {
-      return { newShape: rotated, newX: posX + kick };
+  for (const [kx, ky] of kicks) {
+    if (isValidMove(board, rotated, posX + kx, posY + ky)) {
+      return { newShape: rotated, newX: posX + kx, newY: posY + ky };
     }
   }
   return null;

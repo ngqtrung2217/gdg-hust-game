@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Trophy, Sparkles, BrainCircuit, PartyPopper } from "lucide-react";
+import { isAudioMuted } from "@/lib/audio";
 
 const GRID_SIZE = 3;
 const CELLS = GRID_SIZE * GRID_SIZE;
@@ -60,7 +61,7 @@ export function SequenceMemory() {
 
   // Web Audio Synth
   const playTone = useCallback((freq: number, duration = 0.25, type: OscillatorType = "sine") => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isAudioMuted()) return;
     try {
       const AudioCtx =
         window.AudioContext ||

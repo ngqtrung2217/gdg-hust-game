@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, ArrowUp, ArrowDown, Shield, Zap } from "lucide-react";
 import { isAudioMuted } from "@/lib/audio";
+import { triggerConfetti } from "@/lib/confetti";
 
 // Canvas logical dimensions
 const CANVAS_W = 800;
@@ -426,6 +427,7 @@ export function DinoRun() {
       s.best = finalScore;
       setBest(finalScore);
       localStorage.setItem("dino-run-best", String(finalScore));
+      triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.4 } });
     }
   };
 

@@ -85,6 +85,11 @@ export function triggerConfetti(options: ConfettiOptions = {}) {
   const gravity = 0.8;
   const drag = 0.98;
 
+  const timeoutId = setTimeout(() => {
+    cancelAnimationFrame(animationFrameId);
+    canvas.remove();
+  }, 5000);
+
   const render = () => {
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
@@ -116,6 +121,7 @@ export function triggerConfetti(options: ConfettiOptions = {}) {
       animationFrameId = requestAnimationFrame(render);
     } else {
       cancelAnimationFrame(animationFrameId);
+      clearTimeout(timeoutId);
       canvas.remove();
     }
   };
