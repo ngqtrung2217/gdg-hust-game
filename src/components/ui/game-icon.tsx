@@ -6,6 +6,7 @@ import {
   Disc,
   UserSearch,
   Package,
+  Boxes,
   Calculator,
   Palette,
   type LucideIcon,
@@ -19,6 +20,7 @@ const ICONS: Record<string, LucideIcon> = {
   Disc,
   UserSearch,
   Package,
+  Boxes,
   Calculator,
   Palette,
 };

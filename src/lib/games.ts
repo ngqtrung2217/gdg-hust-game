@@ -68,11 +68,11 @@ export const GAMES: GameMeta[] = [
     color: "text-google-red",
   },
   {
-    slug: "sokoban",
-    name: "Sokoban",
-    description: "Đẩy hộp về đích. Mỗi level là một câu đố không gian.",
+    slug: "tetris",
+    name: "Tetris",
+    description: "Xếp các khối hình tetromino lấp đầy hàng ngang để ghi điểm và xóa dòng.",
     category: "Puzzle",
-    icon: "Package",
+    icon: "Boxes",
     color: "text-google-yellow",
   },
   {

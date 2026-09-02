@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Delete, CornerDownLeft, RotateCcw, PartyPopper, Lightbulb } from "lucide-react";
+import { Delete, CornerDownLeft, RotateCcw, PartyPopper, Lightbulb, Trophy } from "lucide-react";
+import { triggerConfetti } from "@/lib/confetti";
+import { isAudioMuted } from "@/lib/audio";
 import {
   COLS,
   ROWS,
@@ -17,9 +19,9 @@ import {
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 
 const STATE_CLASSES: Record<LetterState, string> = {
-  correct: "bg-google-green text-white border-google-green",
-  present: "bg-google-yellow text-white border-google-yellow",
-  absent: "bg-surface-hover text-muted border-surface-hover",
+  correct: "bg-google-green text-white border-google-green shadow-[0_2px_6px_rgba(52,168,83,0.4)]",
+  present: "bg-google-yellow text-white border-google-yellow shadow-[0_2px_6px_rgba(251,188,4,0.4)]",
+  absent: "bg-surface-hover text-muted border-border/80",
   empty: "border-border bg-surface",
 };
 
@@ -45,9 +47,89 @@ export function Wordle() {
   const [shake, setShake] = useState(false);
   const [keyStates, setKeyStates] = useState<Record<string, LetterState>>({});
   const [message, setMessage] = useState("");
+  const [bestStreak, setBestStreak] = useState(0);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    const saved = Number(localStorage.getItem("wordle-best") ?? 0);
+    setBestStreak(saved);
+  }, []);
+
   const dailyNumber = useMemo(() => getDailyNumber(), []);
+
+  // Web Audio Synth
+  const playSound = useCallback((type: "key" | "delete" | "submit" | "error" | "win") => {
+    if (typeof window === "undefined" || isAudioMuted()) return;
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      if (type === "key") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(500, now);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } else if (type === "delete") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(320, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === "submit") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(650, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      } else if (type === "error") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(140, now);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === "win") {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          gain.gain.setValueAtTime(0.12, now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.22);
+        });
+      }
+    } catch {
+      // Audio fallback
+    }
+  }, []);
 
   const reset = useCallback((m: GameMode) => {
     setMode(m);
@@ -77,16 +159,19 @@ export function Wordle() {
   const submitGuess = useCallback(() => {
     if (gameOver) return;
     if (currentGuess.length < COLS) {
+      playSound("error");
       showMessage("Chưa đủ 5 chữ cái");
       return;
     }
     if (!isValidWord(currentGuess)) {
+      playSound("error");
       setShake(true);
       setTimeout(() => setShake(false), 400);
-      showMessage("Từ không hợp lệ");
+      showMessage("Từ không có trong từ điển");
       return;
     }
 
+    playSound("submit");
     const states = evaluateGuess(currentGuess, target);
     const newBoard = board.map((row, r) =>
       r === currentRow
@@ -111,17 +196,25 @@ export function Wordle() {
     if (currentGuess.toLowerCase() === target) {
       setWon(true);
       setGameOver(true);
+      playSound("win");
+      triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.35 } });
+      setBestStreak((prev) => {
+        const next = prev + 1;
+        localStorage.setItem("wordle-best", String(next));
+        return next;
+      });
       return;
     }
 
     if (currentRow >= ROWS - 1) {
       setGameOver(true);
+      playSound("error");
       return;
     }
 
     setCurrentRow((r) => r + 1);
     setCurrentGuess("");
-  }, [board, currentGuess, currentRow, gameOver, keyStates, target]);
+  }, [board, currentGuess, currentRow, gameOver, keyStates, playSound, target]);
 
   const handleKey = useCallback(
     (key: string) => {
@@ -129,73 +222,94 @@ export function Wordle() {
       if (key === "enter") {
         submitGuess();
       } else if (key === "backspace") {
+        playSound("delete");
         setCurrentGuess((g) => g.slice(0, -1));
       } else if (/^[a-z]$/.test(key) && currentGuess.length < COLS) {
+        playSound("key");
         setCurrentGuess((g) => g + key);
       }
     },
-    [currentGuess.length, gameOver, submitGuess]
+    [currentGuess.length, gameOver, playSound, submitGuess]
   );
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Enter") handleKey("enter");
-      else if (e.key === "Backspace") handleKey("backspace");
-      else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toLowerCase());
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "enter" || key === "backspace") {
+        e.preventDefault();
+        handleKey(key);
+      } else if (/^[a-z]$/.test(key)) {
+        e.preventDefault();
+        handleKey(key);
+      }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleKey]);
 
   const keyClass = (key: string) => {
     const state = keyStates[key];
-    if (state === "correct") return "bg-google-green text-white";
-    if (state === "present") return "bg-google-yellow text-white";
-    if (state === "absent") return "bg-surface-hover text-muted";
-    return "bg-surface border border-border";
+    if (!state) return "bg-surface hover:bg-surface-hover text-foreground border border-border/80 shadow-sm";
+    return STATE_CLASSES[state];
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-2">
-        {(["daily", "unlimited"] as GameMode[]).map((m) => (
+    <div className="relative flex flex-col items-center gap-5 select-none max-w-md w-full">
+      {/* Mode Bar & Streak */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {(["daily", "unlimited"] as const).map((m) => (
           <button
             key={m}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => reset(m)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all active:scale-95 ${
               mode === m
-                ? "bg-primary text-on-primary"
-                : "border border-border bg-surface hover:bg-surface-hover"
+                ? "bg-primary text-on-primary shadow-md"
+                : "border border-border bg-surface hover:bg-surface-hover text-muted"
             }`}
           >
             {m === "daily" ? `Hằng ngày #${dailyNumber}` : "Không giới hạn"}
           </button>
         ))}
+        {bestStreak > 0 && (
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-bold text-google-yellow shadow-sm">
+            <Trophy className="h-4 w-4" />
+            <span>{bestStreak} thắng</span>
+          </div>
+        )}
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => reset(mode)}
           aria-label="Chơi lại"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface transition-colors hover:bg-surface-hover"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface transition-colors hover:bg-surface-hover shadow-sm active:scale-95"
         >
-          <RotateCcw className="h-5 w-5" aria-hidden="true" />
+          <RotateCcw className="h-4 w-4 text-muted" />
         </button>
       </div>
 
-      <div className="h-6 text-sm font-medium text-google-red">{message}</div>
+      {/* Message alert */}
+      <div className="h-6 text-sm font-bold text-google-red transition-all">
+        {message}
+      </div>
 
-      <div className={`grid gap-1.5 ${shake ? "animate-shake" : ""}`}>
+      {/* Word Grid */}
+      <div className={`grid gap-2 ${shake ? "animate-shake" : ""}`}>
         {board.map((row, r) => (
-          <div key={r} className="flex gap-1.5">
+          <div key={r} className="flex gap-2">
             {row.map((tile, c) => {
               const char =
-                r === currentRow && !gameOver
-                  ? currentGuess[c] ?? ""
-                  : tile.char;
+                r === currentRow && !gameOver ? currentGuess[c] ?? "" : tile.char;
+              const isCurrentTyping = r === currentRow && c === currentGuess.length;
+
               return (
                 <div
                   key={c}
-                  className={`flex h-14 w-14 items-center justify-center rounded-lg border-2 text-2xl font-bold uppercase transition-colors duration-150 sm:h-16 sm:w-16 ${STATE_CLASSES[tile.state]}`}
+                  className={`flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 text-2xl font-black uppercase transition-all duration-200 select-none ${
+                    isCurrentTyping
+                      ? "border-primary shadow-md scale-105"
+                      : STATE_CLASSES[tile.state]
+                  }`}
                 >
                   {char}
                 </div>
@@ -205,16 +319,17 @@ export function Wordle() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      {/* Virtual Keyboard */}
+      <div className="flex flex-col gap-1.5 w-full mt-2">
         {KEY_ROWS.map((row, i) => (
-          <div key={row} className="flex justify-center gap-1.5">
+          <div key={row} className="flex justify-center gap-1 sm:gap-1.5 w-full">
             {i === 2 && (
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleKey("enter")}
-                className="flex h-12 items-center justify-center rounded-lg bg-surface px-2 text-xs font-semibold uppercase transition-colors hover:bg-surface-hover"
+                className="flex h-12 flex-1 sm:flex-initial sm:w-14 items-center justify-center rounded-xl bg-surface border border-border text-xs font-bold uppercase transition-all hover:bg-surface-hover active:scale-95 shadow-sm"
               >
-                <CornerDownLeft className="h-4 w-4" aria-hidden="true" />
+                <CornerDownLeft className="h-4 w-4 text-foreground" />
               </button>
             )}
             {row.split("").map((key) => (
@@ -222,7 +337,9 @@ export function Wordle() {
                 key={key}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleKey(key)}
-                className={`flex h-12 w-9 items-center justify-center rounded-lg text-sm font-semibold uppercase transition-colors sm:w-10 ${keyClass(key)}`}
+                className={`flex h-12 flex-1 sm:flex-initial sm:w-10 items-center justify-center rounded-xl text-sm font-bold uppercase transition-all active:scale-95 shadow-sm ${keyClass(
+                  key
+                )}`}
               >
                 {key}
               </button>
@@ -231,34 +348,49 @@ export function Wordle() {
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleKey("backspace")}
-                className="flex h-12 items-center justify-center rounded-lg bg-surface px-2 transition-colors hover:bg-surface-hover"
+                className="flex h-12 flex-1 sm:flex-initial sm:w-14 items-center justify-center rounded-xl bg-surface border border-border transition-all hover:bg-surface-hover active:scale-95 shadow-sm"
               >
-                <Delete className="h-4 w-4" aria-hidden="true" />
+                <Delete className="h-4 w-4 text-foreground" />
               </button>
             )}
           </div>
         ))}
       </div>
 
+      {/* Victory / Defeat Modal Overlay */}
       {gameOver && (
-        <div
-          className={`flex items-center gap-2 rounded-full px-6 py-2 text-sm font-semibold ${
-            won
-              ? "bg-google-green/10 text-google-green"
-              : "bg-google-red/10 text-google-red"
-          }`}
-        >
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm p-6 text-center animate-in zoom-in rounded-3xl">
           {won ? (
-            <>
-              <PartyPopper className="h-4 w-4" aria-hidden="true" />
-              Đoán đúng sau {currentRow + 1} lượt!
-            </>
+            <PartyPopper className="h-16 w-16 text-google-yellow mb-2 drop-shadow" />
           ) : (
-            <>
-              <Lightbulb className="h-4 w-4" aria-hidden="true" />
-              Từ đúng là: {target.toUpperCase()}
-            </>
+            <Lightbulb className="h-16 w-16 text-google-red mb-2 drop-shadow" />
           )}
+
+          <h3 className="text-2xl font-black text-foreground">
+            {won ? "Chúc Mừng! Bạn Đã Đoán Đúng" : "Hết Lượt Đoán!"}
+          </h3>
+
+          <div className="my-4 flex flex-col items-center rounded-2xl border border-primary/20 bg-primary/5 px-6 py-3">
+            <span className="text-xs uppercase font-bold text-muted">Từ khóa bí ẩn</span>
+            <span className="text-3xl font-black tracking-widest text-primary uppercase">
+              {target}
+            </span>
+          </div>
+
+          <p className="text-xs text-muted mb-4">
+            {won
+              ? `Bạn đã tìm ra từ khóa sau ${currentRow + 1} lượt đoán xuất sắc!`
+              : "Đừng nản lòng, hãy thử lại với một từ mới nhé!"}
+          </p>
+
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => reset(mode === "daily" ? "unlimited" : "unlimited")}
+            className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold text-on-primary shadow-lg transition-all hover:scale-105 active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Chơi ván tiếp theo
+          </button>
         </div>
       )}
     </div>

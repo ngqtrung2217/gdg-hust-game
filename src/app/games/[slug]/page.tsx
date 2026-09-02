@@ -6,6 +6,13 @@ import { Minesweeper } from "@/games/minesweeper/minesweeper";
 import { Wordle } from "@/games/wordle/wordle";
 import { SequenceMemory } from "@/games/sequence-memory/sequence-memory";
 import { DinoRun } from "@/games/dino-run/dino-run";
+import { Othello } from "@/games/othello/othello";
+import { GuessWho } from "@/games/guess-who/guess-who";
+import { Tetris } from "@/games/tetris/tetris";
+import { MathBlaster } from "@/games/math-blaster/math-blaster";
+import { StroopTest } from "@/games/stroop-test/stroop-test";
+import { GameGuideModal } from "@/components/ui/game-guide-modal";
+import { ArrowLeft } from "lucide-react";
 
 export function generateStaticParams() {
   return [
@@ -15,7 +22,7 @@ export function generateStaticParams() {
     { slug: "dino-run" },
     { slug: "othello" },
     { slug: "guess-who" },
-    { slug: "sokoban" },
+    { slug: "tetris" },
     { slug: "math-blaster" },
     { slug: "stroop-test" },
   ];
@@ -31,35 +38,50 @@ export default async function GamePage({
   if (!game) notFound();
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] flex-col px-4 py-4 md:px-6">
-      <aside className="absolute left-4 top-4 z-10 flex w-72 flex-col gap-4 md:left-6">
-        <Link
-          href="/"
-          className="flex h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium transition-colors hover:bg-surface-hover"
-        >
-          ← Trang chủ
-        </Link>
-        <div>
-          <h1 className={`flex items-center gap-2 text-xl font-bold ${game.color}`}>
-            <GameIcon name={game.icon} className="h-6 w-6" />
-            {game.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted">{game.description}</p>
-        </div>
-      </aside>
+    <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-7xl flex-col px-4 py-4 md:px-6">
+      {/* Top Breadcrumb & Game Header */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-xs font-semibold transition-colors hover:bg-surface-hover hover:text-foreground active:scale-95"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Trang chủ
+          </Link>
 
-      <div className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border border-border bg-surface p-8">
-        {slug === "minesweeper" ? (
-          <Minesweeper />
-        ) : slug === "wordle" ? (
-          <Wordle />
-        ) : slug === "sequence-memory" ? (
-          <SequenceMemory />
-        ) : slug === "dino-run" ? (
-          <DinoRun />
-        ) : (
-          <div className="text-center text-muted">Game đang được phát triển...</div>
-        )}
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <GameIcon name={game.icon} className={`h-4 w-4 ${game.color}`} />
+            </span>
+            <h1 className={`text-lg font-bold tracking-tight ${game.color}`}>
+              {game.name}
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <GameGuideModal slug={slug} />
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            {game.category}
+          </span>
+          <p className="hidden text-xs text-muted md:inline-block max-w-md truncate">
+            {game.description}
+          </p>
+        </div>
+      </div>
+
+      {/* Game Stage Area */}
+      <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-border bg-surface/50 p-4 sm:p-6 md:p-8 shadow-sm">
+        {slug === "minesweeper" && <Minesweeper />}
+        {slug === "wordle" && <Wordle />}
+        {slug === "sequence-memory" && <SequenceMemory />}
+        {slug === "dino-run" && <DinoRun />}
+        {slug === "othello" && <Othello />}
+        {slug === "guess-who" && <GuessWho />}
+        {slug === "tetris" && <Tetris />}
+        {slug === "math-blaster" && <MathBlaster />}
+        {slug === "stroop-test" && <StroopTest />}
       </div>
     </div>
   );
