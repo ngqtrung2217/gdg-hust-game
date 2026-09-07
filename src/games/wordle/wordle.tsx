@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Delete, CornerDownLeft, RotateCcw, PartyPopper, Lightbulb, Trophy } from "lucide-react";
 import { triggerConfetti } from "@/lib/confetti";
 import { isAudioMuted } from "@/lib/audio";
+import { recordGameScore } from "@/lib/player";
 import {
   COLS,
   ROWS,
@@ -200,7 +201,7 @@ export function Wordle() {
       triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.35 } });
       setBestStreak((prev) => {
         const next = prev + 1;
-        localStorage.setItem("wordle-best", String(next));
+        recordGameScore("wordle", next);
         return next;
       });
       return;

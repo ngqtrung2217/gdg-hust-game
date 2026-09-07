@@ -16,6 +16,7 @@ import {
 } from "./logic";
 import { isAudioMuted } from "@/lib/audio";
 import { triggerConfetti } from "@/lib/confetti";
+import { recordGameScore } from "@/lib/player";
 
 type GameMode = "pve" | "pvp";
 
@@ -118,7 +119,7 @@ export function Othello() {
         triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.4 } });
         const nextWins = bestWins + 1;
         setBestWins(nextWins);
-        localStorage.setItem("othello-best", String(nextWins));
+        recordGameScore("othello", nextWins);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

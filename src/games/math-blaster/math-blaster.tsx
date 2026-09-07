@@ -5,6 +5,7 @@ import { Play, RotateCcw, Zap, Timer, Trophy, Flame } from "lucide-react";
 import { generateQuestion, getMultiplier, type MathQuestion } from "./logic";
 import { isAudioMuted } from "@/lib/audio";
 import { triggerConfetti } from "@/lib/confetti";
+import { recordGameScore } from "@/lib/player";
 
 const INITIAL_TIME = 25.0; // 25 seconds
 const MAX_TIME = 35.0;
@@ -21,6 +22,7 @@ export function MathBlaster() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [flashResult, setFlashResult] = useState<"correct" | "wrong" | null>(null);
   const [floatingText, setFloatingText] = useState<{ text: string; id: number } | null>(null);
+  const [gameOverReason, setGameOverReason] = useState<"timeout" | "wrong" | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -94,15 +96,16 @@ export function MathBlaster() {
     }
   };
 
-  const handleGameOver = useCallback(() => {
+  const handleGameOver = useCallback((reason: "timeout" | "wrong" = "timeout") => {
     if (timerRef.current) clearInterval(timerRef.current);
+    setGameOverReason(reason);
     setPhase("gameover");
     playSound("gameover");
 
     setScore((currentScore) => {
       setBestScore((currentBest) => {
         if (currentScore > currentBest) {
-          localStorage.setItem("math-blaster-best", String(currentScore));
+          recordGameScore("math-blaster", currentScore);
           triggerConfetti({ particleCount: 120, spread: 80, origin: { x: 0.5, y: 0.4 } });
           return currentScore;
         }
@@ -120,7 +123,7 @@ export function MathBlaster() {
       setTimeLeft((prev) => {
         const next = prev - 0.1;
         if (next <= 0) {
-          handleGameOver();
+          handleGameOver("timeout");
           return 0;
         }
         return next;
@@ -142,6 +145,7 @@ export function MathBlaster() {
     setQuestion(generateQuestion(0));
     setFlashResult(null);
     setSelectedOption(null);
+    setGameOverReason(null);
     setPhase("playing");
   }, []);
 
@@ -182,19 +186,19 @@ export function MathBlaster() {
         setFloatingText(null);
       }, 400);
     } else {
-      // Wrong!
+      // Wrong! Sai 1 câu là kết thúc luôn
       setStreak(0);
-      setTimeLeft((t) => Math.max(0, t - 3.5));
       setFlashResult("wrong");
       playSound("wrong");
+      if (timerRef.current) clearInterval(timerRef.current);
 
       setTimeout(() => {
-        setQuestion(generateQuestion(score));
+        handleGameOver("wrong");
         setSelectedOption(null);
         setFlashResult(null);
-      }, 400);
+      }, 550);
     }
-  }, [phase, question, selectedOption, streak, maxStreak, score]);
+  }, [phase, question, selectedOption, streak, maxStreak, score, handleGameOver]);
 
   // Keyboard shortcut listener for 1, 2, 3, 4
   useEffect(() => {
@@ -362,7 +366,7 @@ export function MathBlaster() {
             <Zap className="h-16 w-16 text-google-red mb-3 drop-shadow animate-pulse" />
             <h2 className="text-3xl font-black text-foreground">Math Blaster</h2>
             <p className="mt-2 text-sm text-muted max-w-sm">
-              Tính toán thật nhanh trước khi hết giờ! Đúng liên tiếp để nhân combo x2, x3, x4, x5 và kéo dài thời gian.
+              Tính toán thật nhanh trước khi hết giờ! <strong className="text-google-red">Sai 1 câu là Game Over ngay lập tức</strong>. Đúng liên tiếp để nhân combo x2, x3, x4, x5 và kéo dài thời gian.
             </p>
 
             <button
@@ -380,8 +384,14 @@ export function MathBlaster() {
         {phase === "gameover" && (
           <div className="flex flex-col items-center py-6 text-center w-full animate-in zoom-in">
             <Trophy className="h-14 w-14 text-google-yellow mb-2 drop-shadow" />
-            <h3 className="text-2xl font-black text-foreground">Hết Giờ! Game Over</h3>
-            <p className="text-xs text-muted mt-1">Kết quả chung cuộc của bạn:</p>
+            <h3 className="text-2xl font-black text-foreground">
+              {gameOverReason === "wrong" ? "Tính Sai! Game Over" : "Hết Giờ! Game Over"}
+            </h3>
+            <p className="text-xs text-muted mt-1">
+              {gameOverReason === "wrong"
+                ? "Sai 1 câu là dừng cuộc chơi! Kết quả chung cuộc của bạn:"
+                : "Hết thời gian thử thách! Kết quả chung cuộc của bạn:"}
+            </p>
 
             <div className="my-5 grid grid-cols-3 gap-3 w-full">
               <div className="rounded-2xl border border-border bg-background p-3">

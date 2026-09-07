@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Trophy, Sparkles, BrainCircuit, PartyPopper } from "lucide-react";
 import { isAudioMuted } from "@/lib/audio";
+import { recordGameScore } from "@/lib/player";
 
 const GRID_SIZE = 3;
 const CELLS = GRID_SIZE * GRID_SIZE;
@@ -133,7 +134,7 @@ export function SequenceMemory() {
       playTone(130, 0.4, "sawtooth");
       if (level > best) {
         setBest(level);
-        localStorage.setItem("sequence-memory-best", String(level));
+        recordGameScore("sequence-memory", level);
       }
       return;
     }

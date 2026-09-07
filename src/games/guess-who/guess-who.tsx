@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RotateCcw,
   HelpCircle,
@@ -11,11 +11,17 @@ import {
   Skull,
   Search,
   EyeOff,
+  Eye,
   Send,
-  Zap,
-  Crown,
   Sparkles,
   Layers,
+  Cpu,
+  Target,
+  SlidersHorizontal,
+  Palette,
+  Clock,
+  Info,
+  Calendar,
 } from "lucide-react";
 import { CHARACTERS, type Character } from "./characters";
 import {
@@ -30,6 +36,7 @@ import {
 import { BRAND_LOGOS } from "./logos";
 import { isAudioMuted } from "@/lib/audio";
 import { triggerConfetti } from "@/lib/confetti";
+import { recordGameScore } from "@/lib/player";
 
 export function GuessWho() {
   const [target, setTarget] = useState<Character>(() => pickRandomTarget());
@@ -37,11 +44,13 @@ export function GuessWho() {
   const [history, setHistory] = useState<AnswerResult[]>([]);
   const [activeCategoryTab, setActiveCategoryTab] = useState<QuestionCategory>("all");
   const [customQuery, setCustomQuery] = useState("");
+  const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [strikes, setStrikes] = useState(0);
   const [gameState, setGameState] = useState<"playing" | "won" | "lost">("playing");
   const [suspectToGuess, setSuspectToGuess] = useState<Character | null>(null);
   const [bestScore, setBestScore] = useState(0);
-  const [selectedFilterTier, setSelectedFilterTier] = useState<"all" | "consumer" | "developer" | "boss">("all");
+  const [hideEliminated, setHideEliminated] = useState(false);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load high score from local storage
   useEffect(() => {
@@ -59,6 +68,7 @@ export function GuessWho() {
     setEliminatedIds(new Set());
     setHistory([]);
     setCustomQuery("");
+    setSearchNotice(null);
     setStrikes(0);
     setGameState("playing");
     setSuspectToGuess(null);
@@ -79,29 +89,29 @@ export function GuessWho() {
 
       if (type === "flip_down") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(420, now);
-        osc.frequency.exponentialRampToValueAtTime(180, now + 0.06);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.06);
+        osc.stop(now + 0.08);
       } else if (type === "flip_up") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(260, now);
-        osc.frequency.exponentialRampToValueAtTime(540, now + 0.06);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(480, now + 0.08);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.06);
+        osc.stop(now + 0.08);
       } else if (type === "correct") {
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-        gain.gain.setValueAtTime(0.09, now);
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -109,22 +119,21 @@ export function GuessWho() {
         osc.stop(now + 0.2);
       } else if (type === "strike") {
         osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(160, now);
-        osc.frequency.linearRampToValueAtTime(90, now + 0.25);
-        gain.gain.setValueAtTime(0.12, now);
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(80, now + 0.25);
+        gain.gain.setValueAtTime(0.1, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.25);
       } else if (type === "win") {
-        // Arpeggio C - E - G - C6
         [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
           const o = ctx.createOscillator();
           const g = ctx.createGain();
           o.type = "triangle";
           o.frequency.value = freq;
-          g.gain.setValueAtTime(0.1, now + i * 0.08);
+          g.gain.setValueAtTime(0.09, now + i * 0.08);
           g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.2);
           o.connect(g);
           g.connect(ctx.destination);
@@ -137,7 +146,7 @@ export function GuessWho() {
     }
   }, []);
 
-  // Toggle card face manual
+  // Toggle card elimination manually
   const toggleEliminate = (id: string) => {
     if (gameState !== "playing") return;
     const isNowEliminated = !eliminatedIds.has(id);
@@ -171,7 +180,32 @@ export function GuessWho() {
     });
   };
 
-  // Submit freeform question
+  // Questions filtered by category and search keyword
+  const filteredQuestions = useMemo(() => {
+    let list = QUESTIONS;
+    if (activeCategoryTab !== "all") {
+      list = list.filter((q) => q.category === activeCategoryTab);
+    }
+    if (customQuery.trim()) {
+      const q = customQuery.toLowerCase().trim();
+      list = list.filter(
+        (item) =>
+          item.text.toLowerCase().includes(q) ||
+          item.categoryLabel.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [activeCategoryTab, customQuery]);
+
+  // Display characters (all 24 cards uniform, optionally filtered by hide-eliminated)
+  const displayCharacters = useMemo(() => {
+    if (hideEliminated) {
+      return CHARACTERS.filter((c) => !eliminatedIds.has(c.id));
+    }
+    return CHARACTERS;
+  }, [hideEliminated, eliminatedIds]);
+
+  // Submit freeform question or search
   const handleCustomQuery = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customQuery.trim() || gameState !== "playing") return;
@@ -180,8 +214,17 @@ export function GuessWho() {
     if (matched) {
       askQuestion(matched.id);
       setCustomQuery("");
+      setSearchNotice(null);
     } else {
-      alert("Hệ thống chưa hiểu câu hỏi này. Bạn hãy chọn câu hỏi tương ứng trong các danh mục gợi ý bên dưới nhé!");
+      if (filteredQuestions.length > 0) {
+        askQuestion(filteredQuestions[0].id);
+        setCustomQuery("");
+        setSearchNotice(null);
+      } else {
+        setSearchNotice("Chưa tìm thấy câu hỏi phù hợp. Hãy chọn trực tiếp các gợi ý bên dưới nhé!");
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = setTimeout(() => setSearchNotice(null), 4000);
+      }
     }
   };
 
@@ -194,10 +237,10 @@ export function GuessWho() {
       setGameState("won");
       playSound("win");
       triggerConfetti();
-      const currentScore = calculateScore(history.length, strikes, target.isBoss);
+      const currentScore = calculateScore(history.length, strikes);
       if (currentScore > bestScore) {
         setBestScore(currentScore);
-        localStorage.setItem("guess-who-best", String(currentScore));
+        recordGameScore("guess-who", currentScore);
       }
     } else {
       // Wrong guess (Strike)
@@ -221,101 +264,326 @@ export function GuessWho() {
     return "Thám Tử Tập Sự Xuất Sắc";
   };
 
-  // Questions filtered by category
-  const filteredQuestions = useMemo(() => {
-    if (activeCategoryTab === "all") return QUESTIONS;
-    return QUESTIONS.filter((q) => q.category === activeCategoryTab);
-  }, [activeCategoryTab]);
-
-  // Display characters filtered by view tab
-  const displayCharacters = useMemo(() => {
-    if (selectedFilterTier === "all") return CHARACTERS;
-    return CHARACTERS.filter((c) => c.tier === selectedFilterTier);
-  }, [selectedFilterTier]);
-
   return (
-    <div className="flex w-full flex-col items-center gap-5 select-none max-w-7xl mx-auto px-2">
-      {/* Top Header Bar: Stats, Strikes, Best Score, Reset */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-3.5 shadow-sm">
-        <div className="flex items-center gap-5 sm:gap-7">
-          {/* Candidates Counter */}
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Còn lại</div>
-            <div className="tabular-nums text-2xl font-black text-foreground flex items-center gap-1.5">
-              <span>{remainingCount}</span>
-              <span className="text-xs text-muted font-semibold">/ 24</span>
+    <div className="flex w-full flex-col items-center gap-5 select-none max-w-7xl mx-auto px-1 sm:px-2">
+      {/* Top Detective Command Console */}
+      <div className="w-full rounded-2xl border border-border bg-surface p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Left: Target Dossier Badge & Progress */}
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0 shadow-2xs">
+                <Target className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-google-blue opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-google-blue" />
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Hồ sơ bí mật</span>
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[9px] font-bold text-primary">
+                    Classified
+                  </span>
+                </div>
+                <div className="text-sm sm:text-base font-bold text-foreground flex items-center gap-1.5">
+                  <span>Đối tượng bí ẩn #???</span>
+                  <span className="text-xs font-medium text-muted">(1 trong 24)</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Question Count */}
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Đã hỏi</div>
-            <div className="tabular-nums text-2xl font-black text-google-blue">
-              {history.length}
-            </div>
-          </div>
+            <div className="hidden sm:block h-8 w-px bg-border" />
 
-          {/* Strikes Counter */}
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Cảnh cáo sai</div>
-            <div className="flex items-center gap-1.5 pt-1">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <XCircle
-                  key={i}
-                  className={`h-5 w-5 transition-colors ${
-                    i < strikes ? "text-google-red fill-google-red/20" : "text-muted/20"
-                  }`}
+            {/* Candidates Progress */}
+            <div className="flex flex-col gap-1 min-w-[170px] sm:min-w-[210px]">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-muted">Nghi phạm còn lại:</span>
+                <span className="font-bold tabular-nums text-foreground">
+                  {remainingCount} <span className="text-muted/70 font-normal">/ 24</span>
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-surface-hover overflow-hidden border border-border/50">
+                <div
+                  className="h-full transition-all duration-300 rounded-full bg-primary"
+                  style={{
+                    width: `${Math.max(4, ((24 - remainingCount) / 23) * 100)}%`,
+                  }}
                 />
-              ))}
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-muted font-medium">
+                <span>Thu hẹp diện nghi vấn</span>
+                <span className="font-bold text-primary">
+                  {Math.round(((24 - remainingCount) / 24) * 100)}%
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Actions: High Score, Clue Prompt & Restart */}
-        <div className="flex items-center gap-3">
-          {bestScore > 0 && (
-            <div className="flex items-center gap-1.5 rounded-full bg-google-yellow/15 border border-google-yellow/30 px-3 py-1 text-xs font-bold text-google-yellow shadow-sm">
-              <Trophy className="h-3.5 w-3.5" />
-              <span>Kỷ lục: {bestScore}đ</span>
+          {/* Right: Stats, Strikes & Actions */}
+          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 sm:gap-5">
+            {/* Questions Asked */}
+            <div className="flex flex-col items-center sm:items-start">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Đã hỏi</span>
+              <div className="tabular-nums text-lg font-bold text-foreground">
+                {history.length} <span className="text-xs text-muted font-normal">câu</span>
+              </div>
             </div>
-          )}
 
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleRestart}
-            className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-muted transition-all hover:bg-surface-hover hover:text-foreground active:scale-95 shadow-sm"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span>Ván mới</span>
-          </button>
+            {/* Strikes Warning Pips */}
+            <div className="flex flex-col items-center sm:items-start">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Cảnh cáo sai</span>
+              <div className="flex items-center gap-1.5 pt-1">
+                {[0, 1, 2].map((i) => {
+                  const isStruck = i < strikes;
+                  return (
+                    <div
+                      key={i}
+                      title={isStruck ? "Đã nhận 1 cảnh cáo sai" : "Chưa có cảnh cáo"}
+                      className={`flex h-6 w-6 items-center justify-center rounded-lg border transition-all ${
+                        isStruck
+                          ? "border-danger/40 bg-danger/10 text-danger animate-shake shadow-xs"
+                          : "border-border/60 bg-surface-hover/50 text-muted/30"
+                      }`}
+                    >
+                      {isStruck ? (
+                        <XCircle className="h-3.5 w-3.5 text-google-red" />
+                      ) : (
+                        <div className="h-1.5 w-1.5 rounded-full bg-muted/40" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* High Score Badge */}
+            {bestScore > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 shadow-2xs">
+                <Trophy className="h-3.5 w-3.5" />
+                <span>Kỷ lục: {bestScore}đ</span>
+              </div>
+            )}
+
+            {/* Reset Button */}
+            <button
+              type="button"
+              onClick={handleRestart}
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface-hover active:scale-95 transition-all shadow-xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Ván mới</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Grid & Control Layout (12 columns) */}
+      {/* Main Deduction Stage (12 Columns Layout) */}
       <div className="grid w-full grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* LEFT / CENTER: 24 Cards Grid (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col gap-3">
-          {/* Card Filter Bar & Hint */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            {/* Filter by Tier */}
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              <span className="text-muted mr-1 font-bold">Lọc xem:</span>
+        {/* LEFT / CENTER: Character Cards Grid (8 cols) */}
+        <div className="lg:col-span-8 flex flex-col gap-3.5">
+          {/* Card Controls Bar: Consistent Header & Hide-Eliminated Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border/80 bg-surface px-4 py-2.5 shadow-2xs">
+            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+              <Layers className="h-4 w-4 text-primary" />
+              <span>Danh sách 24 đối tượng nghi vấn</span>
+            </div>
+
+            {/* Toggle Hide Eliminated & Reset Eliminated */}
+            <div className="flex items-center gap-3 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer text-muted hover:text-foreground transition-colors">
+                <input
+                  type="checkbox"
+                  checked={hideEliminated}
+                  onChange={(e) => setHideEliminated(e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                />
+                <span className="text-[11px] font-medium">Ẩn thẻ đã úp</span>
+              </label>
+
+              {eliminatedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound("flip_up");
+                    setEliminatedIds(new Set());
+                  }}
+                  className="text-[11px] font-semibold text-primary hover:underline"
+                >
+                  Mở lại tất cả ({eliminatedIds.size})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Prompt Banner when candidate pool narrows */}
+          {remainingCount <= 3 && remainingCount > 1 && (
+            <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2 text-xs text-primary font-semibold">
+              <span className="flex items-center gap-1.5">
+                <Target className="h-4 w-4 shrink-0 text-primary" />
+                <span>Chỉ còn {remainingCount} nghi phạm trong danh sách! Hãy bấm &quot;Đoán&quot; đối tượng bạn nghi ngờ nhất!</span>
+              </span>
+            </div>
+          )}
+          {remainingCount === 1 && (
+            <div className="flex items-center justify-between rounded-xl border border-google-green/40 bg-google-green/10 px-3.5 py-2 text-xs text-google-green font-bold shadow-xs">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 shrink-0 text-google-green" />
+                <span>Chỉ còn duy nhất 1 ứng viên! Hãy chọn đối tượng này để kết thúc vụ án!</span>
+              </span>
+            </div>
+          )}
+
+          {/* 24 Suspect Dossier Cards Grid (All 24 completely uniform) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {displayCharacters.map((char) => {
+              const isEliminated = eliminatedIds.has(char.id);
+              const LogoComponent = BRAND_LOGOS[char.id];
+
+              return (
+                <div
+                  key={char.id}
+                  onClick={() => toggleEliminate(char.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleEliminate(char.id);
+                    }
+                  }}
+                  className={`group relative flex min-h-[195px] flex-col justify-between rounded-2xl border p-3.5 transition-all duration-200 cursor-pointer select-none text-left ${
+                    isEliminated
+                      ? "border-border/60 bg-surface/40 opacity-35 grayscale-[90%] hover:opacity-75 shadow-none"
+                      : "border-border bg-surface shadow-xs hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5"
+                  }`}
+                >
+                  {/* Top Row: Logo, Launch Year Badge & Flip Button */}
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      {/* Logo Frame */}
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-hover/80 p-2 border border-border/50 shadow-2xs">
+                        {LogoComponent ? (
+                          <LogoComponent className="h-7 w-7" />
+                        ) : (
+                          <Sparkles className="h-6 w-6 text-primary" />
+                        )}
+                      </div>
+
+                      {/* Launch Year Badge & Flip Toggle */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1 rounded-full bg-surface-hover border border-border px-2 py-0.5 text-[10px] font-semibold text-muted">
+                          <Calendar className="h-2.5 w-2.5" />
+                          <span>{char.launchYear}</span>
+                        </span>
+
+                        <div
+                          title={isEliminated ? "Bấm để mở lại thẻ" : "Bấm để úp thẻ"}
+                          className={`flex h-6 w-6 items-center justify-center rounded-full border transition-all ${
+                            isEliminated
+                              ? "border-border bg-surface-hover text-muted"
+                              : "border-transparent text-muted/40 group-hover:border-border group-hover:bg-surface-hover group-hover:text-muted"
+                          }`}
+                        >
+                          {isEliminated ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Character Name */}
+                    <h4 className="text-xs sm:text-sm font-bold text-foreground leading-tight line-clamp-1">
+                      {char.name}
+                    </h4>
+
+                    {/* Category Label (Uniform on all cards) */}
+                    <div className="mt-1">
+                      <span className="inline-block rounded-md bg-primary/8 border border-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary line-clamp-1">
+                        {char.categoryLabel}
+                      </span>
+                    </div>
+
+                    {/* Summary / Tagline */}
+                    <p className="mt-1.5 text-[11px] text-muted line-clamp-2 leading-relaxed">
+                      {char.tagline}
+                    </p>
+                  </div>
+
+                  {/* Bottom Action Row: Hint & Guess Button */}
+                  <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-muted/70 font-medium">
+                      {isEliminated ? "Đã úp" : "Bấm để úp"}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSuspectToGuess(char);
+                      }}
+                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-all active:scale-95 shadow-2xs"
+                    >
+                      <Target className="h-3 w-3" />
+                      <span>Đoán</span>
+                    </button>
+                  </div>
+
+                  {/* Eliminated Watermark Overlay */}
+                  {isEliminated && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-surface/60 backdrop-blur-[1px]">
+                      <span className="flex items-center gap-1 rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-bold text-muted shadow-xs">
+                        <EyeOff className="h-3 w-3" />
+                        <span>ĐÃ LOẠI TRỪ</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT: Questions Console & Clues History (4 cols) */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          {/* Question Selector Console */}
+          <div className="flex flex-col gap-3.5 rounded-2xl border border-border bg-surface p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <HelpCircle className="h-4 w-4 text-primary" />
+                <span>Hỏi manh mối điều tra</span>
+              </h3>
+              <span className="text-[10px] font-semibold text-muted bg-surface-hover px-2 py-0.5 rounded-full border border-border">
+                -50đ / câu
+              </span>
+            </div>
+
+            {/* Category Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1 border-b border-border/60 pb-2.5">
               {[
-                { id: "all", label: "Tất cả (24)", icon: Layers },
-                { id: "consumer", label: "Phổ thông (15)", icon: Sparkles },
-                { id: "developer", label: "Developer (6)", icon: Zap },
-                { id: "boss", label: "Thẻ Boss (3)", icon: Crown },
+                { id: "all", label: "Tất cả", icon: Layers },
+                { id: "tier", label: "Đối tượng", icon: SlidersHorizontal },
+                { id: "domain", label: "Lĩnh vực & AI", icon: Cpu },
+                { id: "brand", label: "Thương hiệu", icon: Palette },
+                { id: "timeline", label: "Thời đại", icon: Clock },
+                { id: "special", label: "Đặc thù", icon: Sparkles },
               ].map((tab) => {
                 const TabIcon = tab.icon;
+                const isSelected = activeCategoryTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setSelectedFilterTier(tab.id as typeof selectedFilterTier)}
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${
-                      selectedFilterTier === tab.id
-                        ? "bg-primary text-on-primary shadow-sm"
-                        : "border border-border bg-surface text-muted hover:bg-surface-hover"
+                    onClick={() => {
+                      setActiveCategoryTab(tab.id as QuestionCategory);
+                      setCustomQuery("");
+                    }}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition-all ${
+                      isSelected
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-muted hover:bg-surface-hover hover:text-foreground"
                     }`}
                   >
                     <TabIcon className="h-3 w-3" />
@@ -325,236 +593,101 @@ export function GuessWho() {
               })}
             </div>
 
-            {/* Clue Prompt */}
-            {remainingCount <= 3 && remainingCount > 1 && (
-              <div className="flex items-center gap-1 text-[11px] font-bold text-google-blue bg-google-blue/10 border border-google-blue/30 px-2.5 py-0.5 rounded-full animate-pulse">
-                <span>🎯 Chỉ còn {remainingCount} thẻ! Hãy suy luận để đoán!</span>
-              </div>
-            )}
-            {remainingCount === 1 && (
-              <div className="flex items-center gap-1 text-[11px] font-bold text-google-green bg-google-green/10 border border-google-green/30 px-2.5 py-0.5 rounded-full animate-bounce">
-                <span>⭐ Chỉ còn 1 ứng viên duy nhất! Bấm ĐOÁN ngay!</span>
-              </div>
-            )}
-          </div>
-
-          {/* 24 Cards Responsive Grid: 6 cols on desktop, 4 cols on md, 3 on sm, 2 on xs */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 [perspective:1000px]">
-            {displayCharacters.map((char) => {
-              const isEliminated = eliminatedIds.has(char.id);
-              const LogoComponent = BRAND_LOGOS[char.id];
-
-              // Boss Card Special Styling
-              const isBossCard = char.tier === "boss";
-
-              return (
-                <div
-                  key={char.id}
-                  onClick={() => toggleEliminate(char.id)}
-                  className={`relative flex min-h-[195px] flex-col justify-between rounded-2xl border p-3 transition-all duration-300 cursor-pointer select-none [transform-style:preserve-3d] ${
-                    isBossCard
-                      ? isEliminated
-                        ? "border-purple-500/20 bg-surface/30 opacity-30 [transform:rotateX(-65deg)] grayscale scale-95"
-                        : "border-purple-500/50 bg-surface shadow-md ring-1 ring-purple-500/30 hover:border-purple-400 hover:shadow-purple-500/20 hover:shadow-lg hover:-translate-y-1"
-                      : isEliminated
-                      ? "border-border/40 bg-surface/30 opacity-30 [transform:rotateX(-65deg)] grayscale scale-95 shadow-none"
-                      : "border-border bg-surface shadow-sm hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5"
-                  }`}
-                >
-                  {/* Top: Logo & Tier Badge */}
-                  <div>
-                    <div className="flex items-start justify-between gap-1 mb-2">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-hover/80 p-1.5 shadow-sm border border-border/40">
-                        {LogoComponent ? (
-                          <LogoComponent className="h-7 w-7" />
-                        ) : (
-                          <Sparkles className="h-6 w-6 text-primary" />
-                        )}
-                      </div>
-
-                      {/* Tier Tag */}
-                      {isBossCard ? (
-                        <span className="flex items-center gap-0.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
-                          <Crown className="h-2.5 w-2.5 fill-current" />
-                          <span>BOSS</span>
-                        </span>
-                      ) : char.tier === "developer" ? (
-                        <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-bold text-google-blue">
-                          DEV
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-surface-hover border border-border px-1.5 py-0.5 text-[9px] font-semibold text-muted">
-                          {char.launchYear}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Character Title */}
-                    <h4 className="text-xs font-bold text-foreground leading-tight line-clamp-1">
-                      {char.name}
-                    </h4>
-                    <p className="mt-1 text-[10px] text-muted line-clamp-2 leading-relaxed">
-                      {char.tagline}
-                    </p>
-                  </div>
-
-                  {/* Bottom: Action & Year */}
-                  <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between">
-                    <span className="text-[9px] font-semibold text-muted/80">
-                      {char.categoryLabel.split(" ")[0]}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSuspectToGuess(char);
-                      }}
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold transition-all active:scale-95 shadow-sm ${
-                        isBossCard
-                          ? "bg-purple-600 text-white hover:bg-purple-700"
-                          : "bg-primary/10 text-primary hover:bg-primary hover:text-on-primary"
-                      }`}
-                    >
-                      Đoán
-                    </button>
-                  </div>
-
-                  {/* Face down overlay badge */}
-                  {isEliminated && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md">
-                      <EyeOff className="h-2.5 w-2.5" />
-                      <span>Đã úp</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* RIGHT: Questions Deck & Clues History (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          {/* Question Selector Deck */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-                <HelpCircle className="h-4 w-4 text-google-blue" />
-                <span>Chọn câu hỏi thám tử</span>
-              </h3>
-              <span className="text-[10px] font-bold text-muted bg-surface-hover px-2 py-0.5 rounded-full border border-border">
-                -50đ / câu
-              </span>
-            </div>
-
-            {/* Category Tabs */}
-            <div className="flex flex-wrap items-center gap-1 border-b border-border/60 pb-2">
-              {[
-                { id: "all", label: "Tất cả" },
-                { id: "tier", label: "Phân loại" },
-                { id: "domain", label: "Lĩnh vực/AI" },
-                { id: "brand", label: "Thương hiệu" },
-                { id: "timeline", label: "Thời đại" },
-                { id: "special", label: "Đặc thù" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveCategoryTab(tab.id as QuestionCategory)}
-                  className={`rounded-lg px-2 py-1 text-[11px] font-bold transition-all ${
-                    activeCategoryTab === tab.id
-                      ? "bg-primary text-on-primary shadow-sm"
-                      : "text-muted hover:bg-surface-hover hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Questions List */}
-            <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
-              {filteredQuestions.map((q) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => askQuestion(q.id)}
-                  disabled={gameState !== "playing"}
-                  className="group flex flex-col items-start gap-1 rounded-xl border border-border bg-background p-2.5 text-left text-xs font-medium text-foreground transition-all hover:bg-surface-hover hover:border-primary/40 active:scale-95 disabled:opacity-50 shadow-sm"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
-                      {q.categoryLabel}
-                    </span>
-                    <span className="text-[10px] font-semibold text-google-blue bg-google-blue/10 px-1.5 py-0.2 rounded">
-                      {q.hintSplit}
-                    </span>
-                  </div>
-                  <span className="line-clamp-2 leading-relaxed text-[11px] font-semibold text-foreground group-hover:text-primary">
-                    {q.text}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Freeform Search / Question Input */}
-            <form onSubmit={handleCustomQuery} className="relative mt-1">
+            {/* Smart Question Filter Input */}
+            <form onSubmit={handleCustomQuery} className="relative">
               <input
                 type="text"
-                placeholder="Hoặc gõ câu hỏi (vd: có phải AI, thẻ boss, màu đỏ?)..."
+                placeholder="Gõ tìm kiếm câu hỏi (vd: AI, mã nguồn mở, đỏ)..."
                 value={customQuery}
-                onChange={(e) => setCustomQuery(e.target.value)}
+                onChange={(e) => {
+                  setCustomQuery(e.target.value);
+                  if (searchNotice) setSearchNotice(null);
+                }}
                 disabled={gameState !== "playing"}
-                className="w-full rounded-xl border border-border bg-background pl-8 pr-10 py-2.5 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
+                className="w-full rounded-xl border border-border bg-background pl-8 pr-10 py-2 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none transition-colors"
               />
-              <Search className="absolute left-2.5 top-3 h-3.5 w-3.5 text-muted" />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted" />
               <button
                 type="submit"
                 disabled={!customQuery.trim() || gameState !== "playing"}
-                className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-on-primary transition-opacity disabled:opacity-30"
+                className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-on-primary transition-opacity disabled:opacity-30"
+                title="Hỏi câu này"
               >
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-3 w-3" />
               </button>
             </form>
+
+            {/* Inline Friendly Hint Notice */}
+            {searchNotice && (
+              <div className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-300">
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{searchNotice}</span>
+              </div>
+            )}
+
+            {/* Questions List (No Right/Wrong Counts) */}
+            <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto pr-1">
+              {filteredQuestions.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted">
+                  Không tìm thấy câu hỏi phù hợp. Hãy thử xóa từ khóa tìm kiếm.
+                </div>
+              ) : (
+                filteredQuestions.map((q) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => askQuestion(q.id)}
+                    disabled={gameState !== "playing"}
+                    className="group flex flex-col items-start gap-1 rounded-xl border border-border/80 bg-background p-2.5 text-left text-xs font-medium text-foreground transition-all hover:bg-surface-hover hover:border-primary/40 active:scale-[0.99] disabled:opacity-50 shadow-2xs"
+                  >
+                    <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                      {q.categoryLabel}
+                    </span>
+                    <span className="line-clamp-2 leading-relaxed text-[11px] font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {q.text}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
-          {/* Clues History & Detective Assistant */}
-          <div className="flex flex-1 flex-col rounded-2xl border border-border bg-surface p-4 shadow-sm min-h-[280px]">
+          {/* Clues History Deck & Assistant */}
+          <div className="flex flex-1 flex-col rounded-2xl border border-border bg-surface p-4 shadow-xs min-h-[290px]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
-                <span>Manh mối điều tra</span>
+                <span>Nhật ký manh mối</span>
                 <span className="rounded-full bg-surface-hover px-2 py-0.2 text-[10px] font-bold text-foreground">
                   {history.length}
                 </span>
               </h3>
 
               {history.length > 0 && (
-                <span className="text-[10px] text-muted">Mới nhất ở trên</span>
+                <span className="text-[10px] text-muted font-medium">Mới nhất ở trên</span>
               )}
             </div>
 
             {history.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center text-center text-xs text-muted p-6">
-                <HelpCircle className="h-8 w-8 text-muted/40 mb-2" />
-                <p>Hãy chọn câu hỏi đầu tiên ở bảng trên để bắt đầu thu hẹp phạm vi nghi phạm!</p>
+                <HelpCircle className="h-8 w-8 text-muted/30 mb-2" />
+                <p>Chọn câu hỏi đầu tiên ở bảng trên để bắt đầu thu thập manh mối điều tra!</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[360px] pr-1">
+              <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[380px] pr-1">
                 {history.map((h, i) => {
-                  // Calculate how many of the currently uneliminated cards can be eliminated
                   const uneliminatedNonMatches = h.eliminatedIds.filter((id) => !eliminatedIds.has(id));
 
                   return (
-                    <div key={i} className="rounded-xl border border-border bg-background p-3 text-xs shadow-sm">
+                    <div key={i} className="rounded-xl border border-border/80 bg-background p-3 text-xs shadow-2xs">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <span className="font-bold text-foreground line-clamp-1">{h.questionText}</span>
                         {h.answer ? (
-                          <span className="shrink-0 flex items-center gap-1 font-black text-google-green bg-google-green/10 border border-google-green/30 px-2 py-0.5 rounded-full text-[11px]">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> ĐÚNG
+                          <span className="shrink-0 flex items-center gap-1 font-bold text-google-green bg-google-green/10 border border-google-green/30 px-2 py-0.5 rounded-full text-[10px]">
+                            <CheckCircle2 className="h-3 w-3" /> ĐÚNG
                           </span>
                         ) : (
-                          <span className="shrink-0 flex items-center gap-1 font-black text-google-red bg-google-red/10 border border-google-red/30 px-2 py-0.5 rounded-full text-[11px]">
-                            <XCircle className="h-3.5 w-3.5" /> SAI
+                          <span className="shrink-0 flex items-center gap-1 font-bold text-google-red bg-google-red/10 border border-google-red/30 px-2 py-0.5 rounded-full text-[10px]">
+                            <XCircle className="h-3 w-3" /> SAI
                           </span>
                         )}
                       </div>
@@ -583,12 +716,19 @@ export function GuessWho() {
 
       {/* Confirm Guess Modal */}
       {suspectToGuess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="flex w-full max-w-sm flex-col items-center rounded-3xl border border-border bg-surface p-6 shadow-2xl text-center">
-            <h3 className="text-lg font-black text-foreground">Bạn có chắc chắn muốn đoán?</h3>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+              <Target className="h-6 w-6" />
+            </div>
 
-            <div className="my-4 flex flex-col items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-4 w-full">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface p-2 shadow-sm border border-border/40">
+            <h3 className="text-lg font-bold text-foreground">Xác nhận nghi phạm</h3>
+            <p className="text-xs text-muted mt-1">
+              Bạn có chắc chắn đây là đối tượng bí ẩn của hồ sơ?
+            </p>
+
+            <div className="my-4 flex flex-col items-center gap-2 rounded-2xl border border-border/80 bg-background p-4 w-full">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface p-2 shadow-2xs border border-border/50">
                 {BRAND_LOGOS[suspectToGuess.id] ? (
                   (() => {
                     const Logo = BRAND_LOGOS[suspectToGuess.id];
@@ -598,33 +738,41 @@ export function GuessWho() {
                   <Sparkles className="h-8 w-8 text-primary" />
                 )}
               </div>
-              <span className="text-lg font-black text-primary">{suspectToGuess.name}</span>
-              <p className="text-xs text-muted leading-relaxed">{suspectToGuess.tagline}</p>
+              <span className="text-base font-bold text-foreground">{suspectToGuess.name}</span>
+              <div className="flex items-center gap-2 text-[10px] text-muted">
+                <span className="rounded-md bg-primary/8 border border-primary/15 px-1.5 py-0.5 text-primary font-medium">
+                  {suspectToGuess.categoryLabel}
+                </span>
+                <span>•</span>
+                <span>Năm {suspectToGuess.launchYear}</span>
+              </div>
+              <p className="text-xs text-muted leading-relaxed mt-1">{suspectToGuess.tagline}</p>
               {suspectToGuess.techLore && (
-                <p className="text-[10px] text-muted/80 italic mt-1 border-t border-border/40 pt-1">
+                <p className="text-[10px] text-muted italic mt-1 border-t border-border/40 pt-1.5">
                   &ldquo;{suspectToGuess.techLore}&rdquo;
                 </p>
               )}
             </div>
 
-            <p className="flex items-center justify-center gap-1 text-xs text-muted mb-4">
-              Nếu đoán sai, bạn sẽ nhận 1 cảnh cáo <XCircle className="inline h-3.5 w-3.5 text-google-red" /> (tối đa 3 lần).
-            </p>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted mb-5">
+              <span>Đoán sai sẽ bị 1 cảnh cáo</span>
+              <span className="font-bold text-google-red">({strikes + 1}/3 lần)</span>
+            </div>
 
             <div className="flex items-center gap-3 w-full">
               <button
                 type="button"
                 onClick={() => setSuspectToGuess(null)}
-                className="flex-1 rounded-full border border-border py-2.5 text-xs font-semibold text-muted hover:bg-surface-hover"
+                className="flex-1 rounded-full border border-border py-2.5 text-xs font-semibold text-muted hover:bg-surface-hover transition-colors"
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
                 onClick={() => confirmGuess(suspectToGuess)}
-                className="flex-1 rounded-full bg-primary py-2.5 text-xs font-bold text-on-primary shadow-md hover:opacity-90 active:scale-95"
+                className="flex-1 rounded-full bg-primary py-2.5 text-xs font-bold text-on-primary shadow-sm hover:opacity-90 active:scale-95 transition-all"
               >
-                Xác nhận đoán!
+                Xác nhận đoán
               </button>
             </div>
           </div>
@@ -633,16 +781,17 @@ export function GuessWho() {
 
       {/* Win Modal */}
       {gameState === "won" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in zoom-in">
-          <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-border bg-surface p-8 shadow-2xl text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-google-yellow/20 text-google-yellow mb-3 shadow-inner">
-              <PartyPopper className="h-10 w-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in zoom-in-95 duration-200">
+          <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-border bg-surface p-7 sm:p-8 shadow-2xl text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 mb-3 shadow-inner">
+              <PartyPopper className="h-8 w-8" />
             </div>
 
-            <h2 className="text-2xl font-black text-foreground">Xuất Sắc! Bạn Đã Thắng!</h2>
-            <p className="text-xs font-bold text-google-blue mt-0.5">
-              Danh hiệu: {getDetectiveTitle()}
-            </p>
+            <h2 className="text-2xl font-bold text-foreground">Phá Án Thành Công!</h2>
+            <div className="inline-flex items-center gap-1 mt-1 rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5 text-xs font-bold text-primary">
+              <Sparkles className="h-3 w-3" />
+              <span>{getDetectiveTitle()}</span>
+            </div>
 
             {/* Target Card Highlight */}
             <div className="my-5 flex flex-col items-center gap-2 rounded-2xl border border-google-green/30 bg-google-green/5 p-4 w-full">
@@ -656,34 +805,41 @@ export function GuessWho() {
                   <Sparkles className="h-10 w-10 text-primary" />
                 )}
               </div>
-              <span className="text-xl font-black text-foreground">{target.name}</span>
+              <span className="text-xl font-bold text-foreground">{target.name}</span>
+              <div className="flex items-center gap-2 text-xs text-muted">
+                <span className="rounded-md bg-primary/8 border border-primary/15 px-2 py-0.5 text-primary font-medium">
+                  {target.categoryLabel}
+                </span>
+                <span>•</span>
+                <span>Năm {target.launchYear}</span>
+              </div>
               <p className="text-xs text-muted">{target.tagline}</p>
               {target.techLore && (
-                <p className="text-[11px] text-muted/90 italic bg-surface/60 rounded-xl p-2.5 border border-border/40 mt-1">
+                <p className="text-[11px] text-muted italic bg-surface/80 rounded-xl p-2.5 border border-border/50 mt-1">
                   &ldquo;{target.techLore}&rdquo;
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 w-full mb-5">
-              <div className="rounded-2xl border border-border bg-background p-3 text-center">
-                <div className="text-[10px] text-muted uppercase font-bold">Số câu hỏi đã hỏi</div>
-                <div className="text-xl font-black text-google-blue">{history.length}</div>
+            <div className="grid grid-cols-2 gap-3 w-full mb-6">
+              <div className="rounded-xl border border-border bg-background p-3 text-center">
+                <div className="text-[10px] text-muted uppercase font-bold">Số câu hỏi đã dùng</div>
+                <div className="text-xl font-bold text-google-blue">{history.length}</div>
               </div>
-              <div className="rounded-2xl border border-border bg-background p-3 text-center">
-                <div className="text-[10px] text-muted uppercase font-bold">Điểm đạt được</div>
-                <div className="text-xl font-black text-google-green">
-                  {calculateScore(history.length, strikes, target.isBoss)}đ
+              <div className="rounded-xl border border-border bg-background p-3 text-center">
+                <div className="text-[10px] text-muted uppercase font-bold">Điểm điều tra</div>
+                <div className="text-xl font-bold text-google-green">
+                  {calculateScore(history.length, strikes)}đ
                 </div>
               </div>
             </div>
 
             <button
               onClick={handleRestart}
-              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold text-on-primary shadow-xl transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold text-on-primary shadow-md transition-all hover:scale-105 active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
-              Chơi ván tiếp theo
+              <span>Chơi ván tiếp theo</span>
             </button>
           </div>
         </div>
@@ -691,19 +847,19 @@ export function GuessWho() {
 
       {/* Lost Modal */}
       {gameState === "lost" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in zoom-in">
-          <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-border bg-surface p-8 shadow-2xl text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-google-red/20 text-google-red mb-3">
-              <Skull className="h-10 w-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in zoom-in-95 duration-200">
+          <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-border bg-surface p-7 sm:p-8 shadow-2xl text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-google-red/15 text-google-red mb-3">
+              <Skull className="h-8 w-8" />
             </div>
 
-            <h2 className="text-2xl font-black text-foreground">Rất tiếc, bạn đã thua!</h2>
+            <h2 className="text-2xl font-bold text-foreground">Hồ Sơ Chưa Được Phá Giải</h2>
             <p className="mt-1 text-xs text-muted">
               Bạn đã nhận 3 cảnh cáo đoán sai. Đối tượng bí ẩn chính xác là:
             </p>
 
-            <div className="my-4 flex flex-col items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-4 w-full">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface p-2 shadow-sm border border-border/40">
+            <div className="my-4 flex flex-col items-center gap-2 rounded-2xl border border-border/80 bg-background p-4 w-full">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface p-2 shadow-sm border border-border/50">
                 {BRAND_LOGOS[target.id] ? (
                   (() => {
                     const Logo = BRAND_LOGOS[target.id];
@@ -713,16 +869,23 @@ export function GuessWho() {
                   <Sparkles className="h-8 w-8 text-primary" />
                 )}
               </div>
-              <span className="text-lg font-black text-primary">{target.name}</span>
+              <span className="text-lg font-bold text-foreground">{target.name}</span>
+              <div className="flex items-center gap-2 text-xs text-muted">
+                <span className="rounded-md bg-primary/8 border border-primary/15 px-1.5 py-0.5 text-primary font-medium">
+                  {target.categoryLabel}
+                </span>
+                <span>•</span>
+                <span>Năm {target.launchYear}</span>
+              </div>
               <p className="text-xs text-muted">{target.tagline}</p>
             </div>
 
             <button
               onClick={handleRestart}
-              className="mt-2 flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold text-on-primary shadow-lg transition-all hover:scale-105 active:scale-95"
+              className="mt-3 flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold text-on-primary shadow-md transition-all hover:scale-105 active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
-              Thử lại ván mới
+              <span>Thử lại ván mới</span>
             </button>
           </div>
         </div>
@@ -730,3 +893,5 @@ export function GuessWho() {
     </div>
   );
 }
+
+

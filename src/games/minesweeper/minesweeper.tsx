@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Flag, PartyPopper, Skull, Trophy, Pickaxe, Smile, Frown, Sparkles, ShieldCheck } from "lucide-react";
 import { triggerConfetti } from "@/lib/confetti";
 import { isAudioMuted } from "@/lib/audio";
+import { recordGameScore } from "@/lib/player";
 import {
   DIFFICULTIES,
   checkWin,
@@ -230,7 +231,7 @@ export function Minesweeper() {
             setTime((curTime) => {
               setBestTime((prev) => {
                 if (prev === 0 || (curTime > 0 && curTime < prev)) {
-                  localStorage.setItem("minesweeper-best", String(curTime));
+                  recordGameScore("minesweeper", curTime);
                   return curTime;
                 }
                 return prev;
@@ -270,7 +271,7 @@ export function Minesweeper() {
         setTime((curTime) => {
           setBestTime((prev) => {
             if (prev === 0 || (curTime > 0 && curTime < prev)) {
-              localStorage.setItem("minesweeper-best", String(curTime));
+              recordGameScore("minesweeper", curTime);
               return curTime;
             }
             return prev;

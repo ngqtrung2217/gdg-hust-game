@@ -28,6 +28,7 @@ import {
 } from "./logic";
 import { isAudioMuted } from "@/lib/audio";
 import { triggerConfetti } from "@/lib/confetti";
+import { recordGameScore } from "@/lib/player";
 
 const INITIAL_TIME = 40.0;
 const MAX_TIME = 50.0;
@@ -89,7 +90,7 @@ export function StroopTest() {
     setScore((currentScore) => {
       setBestScore((currentBest) => {
         if (currentScore > currentBest) {
-          localStorage.setItem("stroop-test-best", String(currentScore));
+          recordGameScore("stroop-test", currentScore);
           triggerConfetti({ particleCount: 120, spread: 80, origin: { x: 0.5, y: 0.4 } });
           return currentScore;
         }

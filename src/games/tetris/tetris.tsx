@@ -15,6 +15,7 @@ import {
   PartyPopper,
   Flame,
 } from "lucide-react";
+import { recordGameScore } from "@/lib/player";
 import {
   BOARD_WIDTH,
   TETROMINOES,
@@ -193,7 +194,7 @@ export function Tetris() {
         setScore((s) => {
           setBestScore((b) => {
             if (s > b) {
-              localStorage.setItem("tetris-best", String(s));
+              recordGameScore("tetris", s);
               return s;
             }
             return b;

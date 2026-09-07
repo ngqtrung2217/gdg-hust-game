@@ -146,7 +146,7 @@ export const GAME_GUIDES: Record<string, GameGuide> = {
     objective: "Tính nhẩm và chọn đáp án chính xác trước khi thanh thời gian cạn kiệt.",
     rules: [
       "Mỗi câu trả lời đúng cộng thêm điểm và hồi phục +2.5 giây.",
-      "Trả lời sai bị trừ −3.5 giây và làm đứt chuỗi combo liên tiếp.",
+      "Chỉ cần trả lời sai 1 câu, trò chơi sẽ kết thúc ngay lập tức (Sudden Death)!",
       "Đúng liên tiếp sẽ nhân hệ số điểm combo: x2 (từ 3 câu), x3 (từ 6 câu), x4 (từ 10 câu), x5 (từ 15 câu).",
     ],
     controls: [

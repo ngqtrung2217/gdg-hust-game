@@ -18,32 +18,32 @@ export const QUESTIONS: QuestionDef[] = [
   {
     id: "is_consumer",
     category: "tier",
-    categoryLabel: "Phân loại",
-    text: "Có phải sản phẩm phục vụ người dùng đại chúng (Consumer) không?",
+    categoryLabel: "Đối tượng",
+    text: "Có phải sản phẩm phục vụ người dùng đại chúng hàng ngày không?",
     evaluator: (c) => c.isConsumer,
     positiveReason: "Đúng! Đây là sản phẩm dịch vụ hướng đến hàng tỷ người dùng cá nhân phổ thông hàng ngày.",
-    negativeReason: "Không! Đây là công cụ chuyên sâu cho Lập trình viên hoặc Thẻ Boss công nghệ.",
-    hintSplit: "15 thẻ ĐÚNG / 9 thẻ SAI",
+    negativeReason: "Không! Đây là công cụ kỹ thuật chuyên sâu hoặc dự án nghiên cứu nền tảng.",
+    hintSplit: "",
   },
   {
     id: "is_developer",
     category: "tier",
-    categoryLabel: "Phân loại",
+    categoryLabel: "Đối tượng",
     text: "Có phải công cụ / nền tảng dành riêng cho Lập trình viên & Kỹ sư không?",
     evaluator: (c) => c.isDeveloper,
     positiveReason: "Đúng! Đây là công nghệ sinh ra để phục vụ developer, kỹ sư hạ tầng hoặc nhà nghiên cứu AI.",
     negativeReason: "Không! Đây là ứng dụng phục vụ người dùng cá nhân hoặc công việc văn phòng thông thường.",
-    hintSplit: "9 thẻ ĐÚNG / 15 thẻ SAI",
+    hintSplit: "",
   },
   {
     id: "is_boss",
     category: "tier",
-    categoryLabel: "Thẻ Boss",
-    text: "Có phải Thẻ BOSS (Công nghệ huyền thoại làm thay đổi lịch sử máy tính thế giới) không?",
+    categoryLabel: "Nền tảng",
+    text: "Có phải dự án nghiên cứu hoặc kiến trúc nền tảng máy tính (Kubernetes, Transformer, DeepMind) không?",
     evaluator: (c) => c.isBoss,
-    positiveReason: "CHÍNH XÁC! Bạn đang đối đầu với một THẺ BOSS HUYỀN THOẠI (Kubernetes, Transformer, hoặc DeepMind)!",
-    negativeReason: "Không! Đây không phải là Thẻ Boss.",
-    hintSplit: "3 thẻ BOSS / 21 thẻ thường",
+    positiveReason: "Chính xác! Đây là dự án nghiên cứu / kiến trúc điện toán nền tảng (Kubernetes, Transformer, hoặc DeepMind)!",
+    negativeReason: "Không! Đây không thuộc nhóm 3 dự án / kiến trúc nền tảng này.",
+    hintSplit: "",
   },
 
   // 2. Công nghệ & Lĩnh vực (Domain & Tech)
@@ -344,8 +344,8 @@ export function matchFreeformQuestion(query: string): QuestionDef | null {
   return null;
 }
 
-export function calculateScore(questionsCount: number, strikes: number, isBoss: boolean): number {
-  const base = isBoss ? 1500 : 1000;
+export function calculateScore(questionsCount: number, strikes: number): number {
+  const base = 1000;
   const questionPenalty = questionsCount * 50;
   const strikePenalty = strikes * 180;
   return Math.max(150, base - questionPenalty - strikePenalty);
