@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GoogleDevLogo } from "@/components/ui/google-dev-logo";
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -12,8 +13,11 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-background mt-auto select-none py-6">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row md:px-6 text-xs text-muted">
-        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-center sm:text-left">
-          <span className="font-bold text-foreground">GDG Arcade</span>
+        <div className="flex flex-col sm:flex-row items-center gap-1.5 sm:gap-2 text-center sm:text-left">
+          <div className="flex items-center gap-1.5">
+            <GoogleDevLogo className="h-4 w-4 shrink-0" />
+            <span className="font-bold text-foreground">GDG on Campus - HUST</span>
+          </div>
           <span className="hidden sm:inline text-border">•</span>
           <span>Google Developer Groups on Campus — Đại học Bách khoa Hà Nội</span>
         </div>

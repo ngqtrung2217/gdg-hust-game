@@ -7,6 +7,7 @@ import { useTheme } from "./theme-provider";
 import { isAudioMuted, toggleAudioMuted } from "@/lib/audio";
 import { getActivePlayer, type PlayerProfile } from "@/lib/player";
 import { AuthModal } from "@/components/player/auth-modal";
+import { GoogleDevLogo } from "@/components/ui/google-dev-logo";
 
 export function Header() {
   const { theme, toggle } = useTheme();
@@ -54,16 +55,19 @@ export function Header() {
     <>
       <header className="sticky top-0 z-50 h-16 border-b border-border bg-background/80 backdrop-blur select-none">
         <div className="flex h-full items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group transition-transform active:scale-95 shrink-0">
+            <GoogleDevLogo className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 transition-transform duration-200 group-hover:scale-105" />
             <div className="flex flex-col">
-              <span className="text-xl sm:text-2xl font-black tracking-tight leading-none">
-                <span className="text-google-blue">G</span>
-                <span className="text-google-red">D</span>
-                <span className="text-google-yellow">G</span>
-                <span className="text-google-green"> Arcade</span>
-              </span>
-              <span className="text-[10px] font-semibold text-muted tracking-wide mt-0.5">
-                Phát triển bởi <strong className="text-foreground">GDG-HUST</strong>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base sm:text-lg font-black tracking-tight leading-none text-foreground whitespace-nowrap">
+                  GDG on Campus <span className="text-google-blue font-black">- HUST</span>
+                </span>
+                <span className="hidden sm:inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary leading-none">
+                  Arcade
+                </span>
+              </div>
+              <span className="text-[10px] font-semibold text-muted tracking-wide mt-0.5 whitespace-nowrap">
+                Google Developer Groups • ĐH Bách khoa Hà Nội
               </span>
             </div>
           </Link>

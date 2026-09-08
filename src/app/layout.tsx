@@ -13,16 +13,18 @@ const roboto = Roboto({
 
 export const metadata: Metadata = {
   title: {
-    default: "GDG Game Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
-    template: "%s | GDG Game Arcade",
+    default: "GDG on Campus - HUST Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
+    template: "%s | GDG on Campus - HUST Arcade",
   },
   description:
-    "Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG-HUST. Chơi ngay trên trình duyệt và di động!",
+    "Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG on Campus - HUST (Đại học Bách khoa Hà Nội). Chơi ngay trên trình duyệt và di động!",
   keywords: [
-    "GDG",
-    "GDG-HUST",
+    "GDG on Campus - HUST",
     "GDG on Campus HUST",
+    "GDG HUST",
+    "GDG",
     "Google Developer Groups",
+    "Google Developer Groups on Campus",
     "Game Arcade",
     "Tetris",
     "Wordle",
@@ -31,14 +33,14 @@ export const metadata: Metadata = {
     "Dino Run",
     "Mini Game",
   ],
-  authors: [{ name: "GDG-HUST" }],
+  authors: [{ name: "GDG on Campus - HUST" }],
   openGraph: {
-    title: "GDG Game Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
+    title: "GDG on Campus - HUST Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
     description:
-      "Chơi ngay 9 mini-game chuẩn Google Material 3: Tetris, Wordle, Minesweeper, Othello, Dino Run, v.v.",
+      "Chơi ngay 9 mini-game chuẩn Google Material 3 phát triển bởi GDG on Campus - HUST: Tetris, Wordle, Minesweeper, Othello, Dino Run, v.v.",
     type: "website",
     locale: "vi_VN",
-    siteName: "GDG Game Arcade",
+    siteName: "GDG on Campus - HUST Arcade",
   },
 };
 

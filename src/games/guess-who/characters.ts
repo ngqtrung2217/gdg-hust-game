@@ -533,9 +533,9 @@ export const CHARACTERS: Character[] = [
   },
   {
     id: "gdg",
-    name: "GDG on Campus",
-    tagline: "Cộng đồng sinh viên đam mê công nghệ và sáng tạo giải pháp Google",
-    techLore: "Mạng lưới câu lạc bộ sinh viên công nghệ toàn cầu, tổ chức Solution Challenge và các workshop lập trình chuyên sâu.",
+    name: "GDG on Campus - HUST",
+    tagline: "Cộng đồng sinh viên đam mê công nghệ và sáng tạo giải pháp Google tại ĐH Bách khoa Hà Nội",
+    techLore: "Mạng lưới câu lạc bộ sinh viên công nghệ toàn cầu tại ĐHBK Hà Nội, tổ chức Solution Challenge và các workshop lập trình chuyên sâu.",
     tier: "developer",
     tierLabel: "Cộng đồng Dev",
     badgeStyle: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
