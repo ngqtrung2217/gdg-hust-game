@@ -257,18 +257,11 @@ export function GoogleCloudLogo({ className = "h-8 w-8" }: LogoProps) {
 
 export function GDGLogo({ className = "h-8 w-8" }: LogoProps) {
   return (
-    <svg viewBox="0 0 192 192" className={className} fill="none">
-      <polygon points="43.06,32 27.07,59.72 48,96 84.92,32" fill="#EA4335" />
-      <path
-        d="M 9.61,90 c -2.14,3.71 -2.14,8.28 0,11.99 l 33.46,58 41.85,0 L 27.07,59.72 9.61,90 Z"
-        fill="#4285F4"
-      />
-      <polygon points="148.94,160 164.93,132.28 144,96 107.08,160" fill="#FBBC04" />
-      <path
-        d="m 182.39,102 c 2.14,-3.71 2.14,-8.28 0,-11.99 l -33.46,-58 -41.85,0 57.85,100.28 17.46,-30.29 z"
-        fill="#34A853"
-      />
-    </svg>
+    <img
+      src="/assets/branding/gdg-logo.png"
+      alt="GDG on Campus - HUST"
+      className={`object-contain ${className}`}
+    />
   );
 }
 
