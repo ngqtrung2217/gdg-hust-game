@@ -13,11 +13,11 @@ const roboto = Roboto({
 
 export const metadata: Metadata = {
   title: {
-    default: "GDG on Campus - HUST Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
+    default: "GDG on Campus - HUST Arcade",
     template: "%s | GDG on Campus - HUST Arcade",
   },
   description:
-    "Tổ hợp 9 trò chơi giải đố, chiến thuật và rèn luyện phản xạ theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG on Campus - HUST (Đại học Bách khoa Hà Nội). Chơi ngay trên trình duyệt và di động!",
+    "Tổ hợp trò chơi theo ngôn ngữ thiết kế Google Material 3, phát triển bởi GDG on Campus - HUST (Đại học Bách khoa Hà Nội).",
   keywords: [
     "GDG on Campus - HUST",
     "GDG on Campus HUST",
@@ -35,9 +35,9 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "GDG on Campus - HUST" }],
   openGraph: {
-    title: "GDG on Campus - HUST Arcade | 9 Trò Chơi Trí Tuệ & Phản Xạ",
+    title: "GDG on Campus - HUST Arcade",
     description:
-      "Chơi ngay 9 mini-game chuẩn Google Material 3 phát triển bởi GDG on Campus - HUST: Tetris, Wordle, Minesweeper, Othello, Dino Run, v.v.",
+      "Chơi ngay các mini-game chuẩn Google Material 3 phát triển bởi GDG on Campus - HUST.",
     type: "website",
     locale: "vi_VN",
     siteName: "GDG on Campus - HUST Arcade",
