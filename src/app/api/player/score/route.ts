@@ -1,115 +1,130 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { verifyGameSessionAndScore, GAME_BOUNDS } from "@/lib/anti-cheat";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
-const MAX_SCORES: Record<string, number> = {
-  minesweeper: 9999,
-  wordle: 5000,
-  "sequence-memory": 100,
-  "dino-run": 100000,
-  othello: 10000,
-  "guess-who": 2000,
-  tetris: 5000000,
-  "math-blaster": 20000,
-  "stroop-test": 10000,
-};
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
     const body = await req.json();
-    const { code, gameSlug, score } = body;
+    const { code, gameSlug, score, sessionToken } = body;
 
+    const rawCode = typeof code === "string" ? code.trim() : "";
+    const rawSlug = typeof gameSlug === "string" ? gameSlug.trim() : "";
     const numericScore = Math.floor(Number(score));
-    if (
-      !code ||
-      typeof code !== "string" ||
-      !gameSlug ||
-      typeof gameSlug !== "string" ||
-      !Number.isFinite(numericScore)
-    ) {
+
+    if (!rawCode || !rawSlug || !Number.isFinite(numericScore)) {
       return NextResponse.json(
-        { success: false, error: "Dữ liệu không hợp lệ" },
+        { success: false, error: "Dữ liệu gửi lên không hợp lệ" },
         { status: 400 }
       );
     }
 
-    const maxAllowed = MAX_SCORES[gameSlug];
-    if (!maxAllowed) {
+    // Anti-Spam Rate Limit per Player Code & IP (max 1 submission per 4s)
+    const rateCheck = checkRateLimit(`score:${rawCode}:${ip}`, 1, 3500);
+    if (!rateCheck.allowed) {
       return NextResponse.json(
-        { success: false, error: "Trò chơi không hợp lệ" },
-        { status: 400 }
+        {
+          success: false,
+          error: `Gửi điểm quá nhanh. Vui lòng đợi ${rateCheck.retryAfterSeconds} giây!`,
+        },
+        { status: 429 }
       );
     }
 
-    if (numericScore <= 0 || numericScore > maxAllowed) {
+    // 1. Anti-Cheat Engine Verification (HMAC signature, replay attack, rate of scoring, time sanity)
+    const verification = verifyGameSessionAndScore(rawCode, rawSlug, numericScore, sessionToken);
+    if (!verification.valid) {
+      console.warn(
+        `[ANTI-CHEAT ALERT] Rejected score from ${rawCode} in ${rawSlug} (${numericScore}đ): ${verification.reason}`
+      );
       return NextResponse.json(
-        { success: false, error: `Điểm không hợp lệ (giới hạn tối đa: ${maxAllowed})` },
-        { status: 400 }
+        {
+          success: false,
+          error: verification.reason || "Phát hiện dấu hiệu gian lận. Điểm không được ghi nhận!",
+          antiCheatTriggered: true,
+        },
+        { status: 403 }
       );
     }
 
-    // Verify player
-    const players = await query<{ id: string }>(
-      "SELECT id FROM players WHERE code = $1 LIMIT 1",
-      [code.trim()]
+    const validatedScore = verification.sanitizedScore;
+
+    // 2. Verify Player Account in Supabase Database
+    const players = await query<{ id: string; name: string }>(
+      "SELECT id, name FROM players WHERE code = $1 LIMIT 1",
+      [rawCode]
     );
 
     if (players.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Mã tài khoản không tồn tại" },
+        { success: false, error: "Mã đội thi đấu không tồn tại trên hệ thống!" },
         { status: 404 }
       );
     }
 
     const playerId = players[0].id;
+    const isLowerBetter = GAME_BOUNDS[rawSlug]?.isLowerBetter ?? false;
 
-    // Check current score
+    // 3. Query current high score from Database
     const existing = await query<{ score: number }>(
-      "SELECT score FROM scores WHERE player_id = $1 AND game_slug = $2",
-      [playerId, gameSlug]
+      "SELECT score FROM scores WHERE player_id = $1 AND game_slug = $2 LIMIT 1",
+      [playerId, rawSlug]
     );
 
     let shouldUpdate = false;
-    let bestScore = numericScore;
+    let bestScore = validatedScore;
+    let previousBest = 0;
 
     if (existing.length === 0) {
       shouldUpdate = true;
     } else {
-      const current = existing[0].score;
-      if (gameSlug === "minesweeper") {
-        if (current === 0 || numericScore < current) {
+      previousBest = existing[0].score;
+      if (isLowerBetter) {
+        // Lower is better (e.g. Minesweeper completion time)
+        if (previousBest === 0 || validatedScore < previousBest) {
           shouldUpdate = true;
+          bestScore = validatedScore;
         } else {
-          bestScore = current;
+          bestScore = previousBest;
         }
       } else {
-        if (numericScore > current) {
+        // Higher is better (e.g. Dino, Tetris, Math Blaster...)
+        if (validatedScore > previousBest) {
           shouldUpdate = true;
+          bestScore = validatedScore;
         } else {
-          bestScore = current;
+          bestScore = previousBest;
         }
       }
     }
 
+    // 4. Update Database if new record
     if (shouldUpdate) {
       await query(
         `INSERT INTO scores (player_id, game_slug, score, updated_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (player_id, game_slug) DO UPDATE
          SET score = EXCLUDED.score, updated_at = NOW()`,
-        [playerId, gameSlug, numericScore]
+        [playerId, rawSlug, validatedScore]
       );
     }
 
     return NextResponse.json({
       success: true,
+      gameSlug: rawSlug,
+      score: validatedScore,
       bestScore,
-      updated: shouldUpdate,
+      previousBest,
+      isNewBest: shouldUpdate,
+      teamName: players[0].name,
     });
-  } catch (error: unknown) {
-    console.error("Error updating score:", error);
-    const message = error instanceof Error ? error.message : "Lỗi cập nhật điểm";
+  } catch (error) {
+    console.error("[Submit Score DB Error]:", error);
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: "Lỗi kết nối cơ sở dữ liệu khi lưu điểm" },
       { status: 500 }
     );
   }

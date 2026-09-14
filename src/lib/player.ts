@@ -133,19 +133,12 @@ export function recordGameScore(gameSlug: string, score: number): {
     })
   );
 
-  // If active player has a code, sync to Supabase in background
-  const player = getActivePlayer();
-  if (player?.code) {
-    fetch("/api/player/score", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: player.code,
-        gameSlug,
-        score: finalBest,
-      }),
-    }).catch((err) => console.warn("Background score sync failed:", err));
-  }
+  // Directly save and sync score to Database with Anti-Cheat session token
+  import("./game-session").then(({ submitScoreToDatabase }) => {
+    submitScoreToDatabase(gameSlug, score).catch((err) =>
+      console.warn("[Score DB Sync Warning]:", err)
+    );
+  });
 
   return { isNewBest, bestScore: finalBest };
 }

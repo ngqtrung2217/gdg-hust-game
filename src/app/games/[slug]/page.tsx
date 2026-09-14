@@ -12,6 +12,7 @@ import { Tetris } from "@/games/tetris/tetris";
 import { MathBlaster } from "@/games/math-blaster/math-blaster";
 import { StroopTest } from "@/games/stroop-test/stroop-test";
 import { GameGuideModal } from "@/components/ui/game-guide-modal";
+import { TeamGate } from "@/components/player/team-gate";
 import { ArrowLeft } from "lucide-react";
 
 export function generateStaticParams() {
@@ -71,17 +72,19 @@ export default async function GamePage({
         </div>
       </div>
 
-      {/* Game Stage Area */}
+      {/* Game Stage Area with Mandatory Team Gate */}
       <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-border bg-surface/50 p-4 sm:p-6 md:p-8 shadow-sm">
-        {slug === "minesweeper" && <Minesweeper />}
-        {slug === "wordle" && <Wordle />}
-        {slug === "sequence-memory" && <SequenceMemory />}
-        {slug === "dino-run" && <DinoRun />}
-        {slug === "othello" && <Othello />}
-        {slug === "guess-who" && <GuessWho />}
-        {slug === "tetris" && <Tetris />}
-        {slug === "math-blaster" && <MathBlaster />}
-        {slug === "stroop-test" && <StroopTest />}
+        <TeamGate gameSlug={slug} gameName={game.name} gameColor={game.color}>
+          {slug === "minesweeper" && <Minesweeper />}
+          {slug === "wordle" && <Wordle />}
+          {slug === "sequence-memory" && <SequenceMemory />}
+          {slug === "dino-run" && <DinoRun />}
+          {slug === "othello" && <Othello />}
+          {slug === "guess-who" && <GuessWho />}
+          {slug === "tetris" && <Tetris />}
+          {slug === "math-blaster" && <MathBlaster />}
+          {slug === "stroop-test" && <StroopTest />}
+        </TeamGate>
       </div>
     </div>
   );

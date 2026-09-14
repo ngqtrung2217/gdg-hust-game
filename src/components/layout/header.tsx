@@ -80,15 +80,15 @@ export function Header() {
               <span className="hidden sm:inline">Bảng xếp hạng</span>
             </Link>
 
-            {/* Player Account Button */}
+            {/* Team / Player Account Button */}
             {player?.code ? (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary/20 active:scale-95"
-                title={`Tuyển thủ: ${player.name} (#${player.code})`}
+                className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition-all hover:bg-primary/20 active:scale-95 shadow-xs"
+                title={`Đội thi đấu: ${player.name} (#${player.code})`}
               >
                 <span className="h-2 w-2 rounded-full bg-google-green animate-pulse" />
-                <span className="max-w-[100px] truncate">{player.name}</span>
+                <span className="max-w-[110px] truncate">Đội {player.name}</span>
                 <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-mono text-primary font-black">
                   #{player.code}
                 </span>
@@ -96,11 +96,11 @@ export function Header() {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary px-3 py-1.5 text-xs font-bold text-on-primary transition-all hover:opacity-90 active:scale-95 shadow-xs shadow-primary/20"
-                title="Tạo tên hoặc đăng nhập mã 6 số để lưu điểm"
+                className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary px-3.5 py-1.5 text-xs font-bold text-on-primary transition-all hover:opacity-90 active:scale-95 shadow-xs shadow-primary/20"
+                title="Tạo đội thi đấu hoặc đăng nhập mã 6 số để lưu điểm Database"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Mã 6 số</span>
+                <span>Đăng ký Đội</span>
               </button>
             )}
 
