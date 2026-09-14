@@ -49,11 +49,15 @@ export function Wordle() {
   const [keyStates, setKeyStates] = useState<Record<string, LetterState>>({});
   const [message, setMessage] = useState("");
   const [bestStreak, setBestStreak] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [earnedScore, setEarnedScore] = useState(0);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const saved = Number(localStorage.getItem("wordle-best") ?? 0);
-    setBestStreak(saved);
+    const savedStreak = Number(localStorage.getItem("wordle-best") ?? 0);
+    const savedScore = Number(localStorage.getItem("wordle-best-score") ?? 0);
+    setBestStreak(savedStreak);
+    setBestScore(savedScore);
   }, []);
 
   const dailyNumber = useMemo(() => getDailyNumber(), []);
@@ -199,11 +203,25 @@ export function Wordle() {
       setGameOver(true);
       playSound("win");
       triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.35 } });
-      setBestStreak((prev) => {
-        const next = prev + 1;
-        recordGameScore("wordle", next);
+      const nextStreak = bestStreak + 1;
+      setBestStreak(nextStreak);
+      localStorage.setItem("wordle-best", String(nextStreak));
+
+      // Wordle Arcade Score:
+      // Base: 600
+      // Efficiency bonus: (6 - currentRow) * 100
+      // Streak bonus: Math.min(400, nextStreak * 50)
+      const efficiencyBonus = Math.max(0, (6 - currentRow) * 100);
+      const streakBonus = Math.min(400, nextStreak * 50);
+      const roundScore = 600 + efficiencyBonus + streakBonus;
+
+      setEarnedScore(roundScore);
+      setBestScore((prev) => {
+        const next = Math.max(prev, roundScore);
+        localStorage.setItem("wordle-best-score", String(next));
         return next;
       });
+      recordGameScore("wordle", roundScore);
       return;
     }
 
@@ -273,12 +291,17 @@ export function Wordle() {
             {m === "daily" ? `Hằng ngày #${dailyNumber}` : "Không giới hạn"}
           </button>
         ))}
-        {bestStreak > 0 && (
+        {bestScore > 0 ? (
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-bold text-google-yellow shadow-sm">
+            <Trophy className="h-4 w-4" />
+            <span>Kỷ lục: {bestScore.toLocaleString()}đ (Chuỗi {bestStreak})</span>
+          </div>
+        ) : bestStreak > 0 ? (
           <div className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-bold text-google-yellow shadow-sm">
             <Trophy className="h-4 w-4" />
             <span>{bestStreak} thắng</span>
           </div>
-        )}
+        ) : null}
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => reset(mode)}
@@ -378,11 +401,19 @@ export function Wordle() {
             </span>
           </div>
 
-          <p className="text-xs text-muted mb-4">
+          <p className="text-xs text-muted mb-2">
             {won
               ? `Bạn đã tìm ra từ khóa sau ${currentRow + 1} lượt đoán xuất sắc!`
               : "Đừng nản lòng, hãy thử lại với một từ mới nhé!"}
           </p>
+
+          {won && (
+            <div className="mb-4 flex flex-col items-center gap-1 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-2.5">
+              <span className="text-xs font-semibold text-muted">Điểm Arcade nhận được:</span>
+              <span className="text-xl font-black text-primary">+{earnedScore.toLocaleString()} điểm</span>
+              <span className="text-[11px] text-muted">Cơ bản 600đ + Thưởng đoán sớm + Chuỗi thắng</span>
+            </div>
+          )}
 
           <button
             onMouseDown={(e) => e.preventDefault()}

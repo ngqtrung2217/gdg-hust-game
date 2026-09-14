@@ -32,19 +32,19 @@ export const GAME_BOUNDS: Record<
   }
 > = {
   minesweeper: {
-    maxScore: 3600,
-    minScore: 4, // 4 seconds minimum humanly possible for 9x9 (10 mines)
-    isLowerBetter: true,
+    maxScore: 4500,
+    minScore: 100,
+    isLowerBetter: false,
     minDurationSec: 4,
   },
   wordle: {
-    maxScore: 1200,
-    minScore: 1,
+    maxScore: 3000,
+    minScore: 100,
     minDurationSec: 3,
   },
   "sequence-memory": {
-    maxScore: 30, // Level 30
-    minScore: 1,
+    maxScore: 6000,
+    minScore: 100,
     minDurationSec: 4,
   },
   "dino-run": {
@@ -54,8 +54,8 @@ export const GAME_BOUNDS: Record<
     maxPointsPerSec: 28, // Max physics speed + combo multiplier
   },
   othello: {
-    maxScore: 64, // 8x8 board has max 64 disks
-    minScore: 1,
+    maxScore: 3500,
+    minScore: 100,
     minDurationSec: 5,
   },
   "guess-who": {
@@ -209,13 +209,13 @@ export function verifyGameSessionAndScore(
   }
 
   if (gameSlug === "sequence-memory") {
-    // Each level requires displaying (level * 0.65s) + clicking (level * 0.15s) = 0.8s * level
-    // Total time = sum(i * 0.8) for i=1..level = 0.4 * level * (level + 1)
-    const minRequiredTime = (numericScore * (numericScore + 1)) * 0.35;
+    // Score is approx level * 120
+    const approxLevel = Math.max(1, Math.round(numericScore / 120));
+    const minRequiredTime = (approxLevel * (approxLevel + 1)) * 0.35;
     if (elapsedSec < minRequiredTime) {
       return {
         valid: false,
-        reason: `Cấp độ nhớ ${numericScore} đòi hỏi tối thiểu ${minRequiredTime.toFixed(0)} giây (Thực tế chỉ ${elapsedSec.toFixed(1)}s)!`,
+        reason: `Cấp độ ${approxLevel} (${numericScore}đ) đòi hỏi tối thiểu ${minRequiredTime.toFixed(0)} giây (Thực tế chỉ ${elapsedSec.toFixed(1)}s)!`,
         sanitizedScore: 0,
       };
     }
@@ -227,18 +227,6 @@ export function verifyGameSessionAndScore(
       return {
         valid: false,
         reason: `Tốc độ giải toán vượt quá phản xạ tự nhiên của con người (${numericScore}đ / ${elapsedSec.toFixed(0)}s)!`,
-        sanitizedScore: 0,
-      };
-    }
-  }
-
-  if (gameSlug === "minesweeper") {
-    // Minesweeper score is time in seconds.
-    // If the elapsed wall-clock time is vastly shorter than the reported game timer, it's fake.
-    if (elapsedSec < numericScore * 0.75) {
-      return {
-        valid: false,
-        reason: "Thời gian thực tế không khớp với đồng hồ ván dò mìn!",
         sanitizedScore: 0,
       };
     }

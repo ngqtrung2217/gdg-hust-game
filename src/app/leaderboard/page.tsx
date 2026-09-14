@@ -60,49 +60,49 @@ const SCORE_CONFIGS: Record<
   { key: string; unit: string; format: (val: number) => string }
 > = {
   minesweeper: {
-    key: "minesweeper-best",
-    unit: "giây",
-    format: (v) => `${v}s`,
+    key: "minesweeper-best-score",
+    unit: "điểm",
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   wordle: {
-    key: "wordle-best",
-    unit: "chuỗi thắng",
-    format: (v) => `${v} ván`,
+    key: "wordle-best-score",
+    unit: "điểm",
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   "sequence-memory": {
-    key: "sequence-memory-best",
-    unit: "Level",
-    format: (v) => `Level ${v}`,
+    key: "sequence-memory-best-score",
+    unit: "điểm",
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   "dino-run": {
     key: "dino-run-best",
     unit: "điểm",
-    format: (v) => `${v} điểm`,
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   othello: {
-    key: "othello-best",
-    unit: "trận thắng",
-    format: (v) => `${v} trận`,
+    key: "othello-best-score",
+    unit: "điểm",
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   "guess-who": {
     key: "guess-who-best",
     unit: "điểm",
-    format: (v) => `${v} điểm`,
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   tetris: {
     key: "tetris-best",
     unit: "điểm",
-    format: (v) => `${v} điểm`,
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   "math-blaster": {
     key: "math-blaster-best",
     unit: "điểm",
-    format: (v) => `${v} điểm`,
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
   "stroop-test": {
     key: "stroop-test-best",
     unit: "điểm",
-    format: (v) => `${v} điểm`,
+    format: (v) => `${v.toLocaleString()} điểm`,
   },
 };
 

@@ -45,12 +45,16 @@ export function SequenceMemory() {
   const [inputIndex, setInputIndex] = useState(0);
   const [level, setLevel] = useState(0);
   const [best, setBest] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [earnedScore, setEarnedScore] = useState(0);
   const [flashCell, setFlashCell] = useState<number | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const stored = Number(localStorage.getItem("sequence-memory-best") ?? 0);
+    const storedScore = Number(localStorage.getItem("sequence-memory-best-score") ?? 0);
     setBest(stored);
+    setBestScore(storedScore);
   }, []);
 
   const clearTimers = useCallback(() => {
@@ -132,9 +136,20 @@ export function SequenceMemory() {
     if (cell !== sequence[inputIndex]) {
       setPhase("gameover");
       playTone(130, 0.4, "sawtooth");
+      const completedLevels = Math.max(0, level - 1);
+      const roundScore = completedLevels * 130;
+      setEarnedScore(roundScore);
       if (level > best) {
         setBest(level);
-        recordGameScore("sequence-memory", level);
+        localStorage.setItem("sequence-memory-best", String(level));
+      }
+      setBestScore((prev) => {
+        const next = Math.max(prev, roundScore);
+        localStorage.setItem("sequence-memory-best-score", String(next));
+        return next;
+      });
+      if (roundScore > 0) {
+        recordGameScore("sequence-memory", roundScore);
       }
       return;
     }
@@ -179,9 +194,9 @@ export function SequenceMemory() {
 
         <div className="text-right">
           <div className="text-[11px] font-bold uppercase tracking-wider text-muted">Kỷ lục</div>
-          <div className="flex items-center justify-end gap-1 tabular-nums text-2xl font-extrabold text-google-yellow">
-            <Trophy className="h-5 w-5" />
-            <span>{best > 0 ? `Lv ${best}` : "0"}</span>
+          <div className="flex items-center justify-end gap-1 tabular-nums text-xl font-extrabold text-google-yellow">
+            <Trophy className="h-4 w-4" />
+            <span>{bestScore > 0 ? `${bestScore.toLocaleString()}đ (Lv ${best})` : best > 0 ? `Lv ${best}` : "0đ"}</span>
           </div>
         </div>
       </div>
@@ -251,8 +266,16 @@ export function SequenceMemory() {
               Bạn đã ghi nhớ chính xác đến <strong className="text-google-yellow">Level {level}</strong>.
             </p>
 
+            {earnedScore > 0 && (
+              <div className="mt-3 flex flex-col items-center gap-1 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-2">
+                <span className="text-xs font-semibold text-zinc-400">Điểm Arcade nhận được:</span>
+                <span className="text-xl font-black text-primary">+{earnedScore.toLocaleString()} điểm</span>
+                <span className="text-[11px] text-zinc-400">{Math.max(0, level - 1)} cấp độ hoàn thành (130đ/cấp)</span>
+              </div>
+            )}
+
             {level >= best && level > 1 && (
-              <div className="mt-3 rounded-full bg-google-yellow/20 border border-google-yellow/40 px-4 py-1 text-xs font-bold text-google-yellow">
+              <div className="mt-2 rounded-full bg-google-yellow/20 border border-google-yellow/40 px-4 py-1 text-xs font-bold text-google-yellow">
                 Kỷ lục mới của bạn!
               </div>
             )}

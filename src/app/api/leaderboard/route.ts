@@ -10,8 +10,7 @@ export async function GET(req: Request) {
     const myCode = (searchParams.get("myCode") || "").trim();
 
     if (game && game !== "overall") {
-      const isMinesweeper = game === "minesweeper";
-      const orderDir = isMinesweeper ? "ASC" : "DESC";
+      const orderDir = "DESC";
 
       const rows = await query<{
         name: string;

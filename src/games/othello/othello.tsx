@@ -28,6 +28,8 @@ export function Othello() {
   const [isThinkingAI, setIsThinkingAI] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [bestWins, setBestWins] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [earnedScore, setEarnedScore] = useState(0);
   const [recentFlipped, setRecentFlipped] = useState<Set<string>>(new Set());
 
   const discCounts = useMemo(() => countDiscs(board), [board]);
@@ -50,8 +52,10 @@ export function Othello() {
 
   // Load high score
   useEffect(() => {
-    const saved = Number(localStorage.getItem("othello-best") ?? 0);
-    setBestWins(saved);
+    const savedWins = Number(localStorage.getItem("othello-best") ?? 0);
+    const savedScore = Number(localStorage.getItem("othello-best-score") ?? 0);
+    setBestWins(savedWins);
+    setBestScore(savedScore);
   }, []);
 
   // Audio effects
@@ -119,7 +123,25 @@ export function Othello() {
         triggerConfetti({ particleCount: 130, spread: 85, origin: { x: 0.5, y: 0.4 } });
         const nextWins = bestWins + 1;
         setBestWins(nextWins);
-        recordGameScore("othello", nextWins);
+        localStorage.setItem("othello-best", String(nextWins));
+
+        // Othello Arcade Score:
+        // Base win: 800
+        // Dominance: (B - R) * 20
+        // AI Difficulty: easy = 0, medium = 200, hard = 450
+        // Win streak bonus: Math.min(400, nextWins * 80)
+        const dominanceBonus = Math.max(0, (B - R) * 20);
+        const diffBonus = aiDifficulty === "hard" ? 450 : aiDifficulty === "medium" ? 200 : 0;
+        const winBonus = Math.min(400, nextWins * 80);
+        const roundScore = 800 + dominanceBonus + diffBonus + winBonus;
+
+        setEarnedScore(roundScore);
+        setBestScore((prev) => {
+          const next = Math.max(prev, roundScore);
+          localStorage.setItem("othello-best-score", String(next));
+          return next;
+        });
+        recordGameScore("othello", roundScore);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,11 +305,15 @@ export function Othello() {
 
         <div className="flex flex-col items-center">
           <span className="text-[11px] font-medium text-muted">VS</span>
-          {bestWins > 0 && (
+          {bestScore > 0 ? (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-google-yellow">
+              <Trophy className="h-3 w-3" /> {bestScore.toLocaleString()}đ ({bestWins}W)
+            </span>
+          ) : bestWins > 0 ? (
             <span className="flex items-center gap-1 text-[11px] font-semibold text-google-yellow">
               <Trophy className="h-3 w-3" /> {bestWins} thắng
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Red Player / AI */}
@@ -419,6 +445,14 @@ export function Othello() {
               Tỉ số: <strong className="text-google-blue">{discCounts.B}</strong> -{" "}
               <strong className="text-google-red">{discCounts.R}</strong>
             </p>
+
+            {discCounts.B > discCounts.R && earnedScore > 0 && (
+              <div className="mt-3 flex flex-col items-center gap-0.5 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-2">
+                <span className="text-xs font-semibold text-muted">Điểm Arcade nhận được:</span>
+                <span className="text-xl font-black text-primary">+{earnedScore.toLocaleString()} điểm</span>
+                <span className="text-[11px] text-muted">Thắng AI + Chênh lệch số quân + Thưởng chuỗi</span>
+              </div>
+            )}
             <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={resetGame}

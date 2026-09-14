@@ -81,6 +81,20 @@ function MineFlag() {
   );
 }
 
+export function calculateMinesweeperScore(difficultyName: string, timeSec: number): number {
+  let base = 800;
+  let targetTime = 120;
+  if (difficultyName === "Trung bình") {
+    base = 1500;
+    targetTime = 300;
+  } else if (difficultyName === "Khó") {
+    base = 2500;
+    targetTime = 600;
+  }
+  const speedBonus = Math.max(0, Math.floor((targetTime - Math.max(1, timeSec)) * 10));
+  return base + speedBonus;
+}
+
 export function Minesweeper() {
   const [difficulty, setDifficulty] = useState<Difficulty>(DIFFICULTIES[0]);
   const [board, setBoard] = useState<Board>(() =>
@@ -90,12 +104,16 @@ export function Minesweeper() {
   const [minesPlaced, setMinesPlaced] = useState(false);
   const [time, setTime] = useState(0);
   const [bestTime, setBestTime] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [earnedScore, setEarnedScore] = useState(0);
   const [actionMode, setActionMode] = useState<ActionMode>("dig");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const saved = Number(localStorage.getItem("minesweeper-best") ?? 0);
-    setBestTime(saved);
+    const savedTime = Number(localStorage.getItem("minesweeper-best") ?? 0);
+    const savedScore = Number(localStorage.getItem("minesweeper-best-score") ?? 0);
+    setBestTime(savedTime);
+    setBestScore(savedScore);
   }, []);
 
   // Web Audio Synth
@@ -229,9 +247,17 @@ export function Minesweeper() {
             playSound("win");
             triggerConfetti({ particleCount: 140, spread: 90, origin: { x: 0.5, y: 0.4 } });
             setTime((curTime) => {
+              const curScore = calculateMinesweeperScore(difficulty.name, curTime);
+              setEarnedScore(curScore);
+              setBestScore((prevScore) => {
+                const nextScore = Math.max(prevScore, curScore);
+                localStorage.setItem("minesweeper-best-score", String(nextScore));
+                return nextScore;
+              });
+              recordGameScore("minesweeper", curScore);
               setBestTime((prev) => {
                 if (prev === 0 || (curTime > 0 && curTime < prev)) {
-                  recordGameScore("minesweeper", curTime);
+                  localStorage.setItem("minesweeper-best", String(curTime));
                   return curTime;
                 }
                 return prev;
@@ -269,9 +295,17 @@ export function Minesweeper() {
         playSound("win");
         triggerConfetti({ particleCount: 140, spread: 90, origin: { x: 0.5, y: 0.4 } });
         setTime((curTime) => {
+          const curScore = calculateMinesweeperScore(difficulty.name, curTime);
+          setEarnedScore(curScore);
+          setBestScore((prevScore) => {
+            const nextScore = Math.max(prevScore, curScore);
+            localStorage.setItem("minesweeper-best-score", String(nextScore));
+            return nextScore;
+          });
+          recordGameScore("minesweeper", curScore);
           setBestTime((prev) => {
             if (prev === 0 || (curTime > 0 && curTime < prev)) {
-              recordGameScore("minesweeper", curTime);
+              localStorage.setItem("minesweeper-best", String(curTime));
               return curTime;
             }
             return prev;
@@ -374,10 +408,10 @@ export function Minesweeper() {
         </div>
       </div>
 
-      {bestTime > 0 && (
+      {bestScore > 0 && (
         <div className="flex items-center gap-1.5 rounded-full border border-google-yellow/30 bg-google-yellow/10 px-4 py-1 text-xs font-bold text-google-yellow shadow-sm">
           <Trophy className="h-4 w-4" />
-          <span>Kỷ lục dò sạch: {bestTime} giây</span>
+          <span>Kỷ lục: {bestScore.toLocaleString()} điểm ({bestTime}s)</span>
         </div>
       )}
 
@@ -435,8 +469,13 @@ export function Minesweeper() {
             <p className="mt-1 text-sm text-muted">
               Dò sạch toàn bộ bãi mìn trong thời gian <strong className="text-google-green">{time} giây</strong>.
             </p>
+            <div className="mt-3 flex flex-col items-center gap-1 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-2.5">
+              <span className="text-xs font-semibold text-muted">Điểm Arcade nhận được:</span>
+              <span className="text-2xl font-black text-primary">+{earnedScore.toLocaleString()} điểm</span>
+              <span className="text-[11px] text-muted">Bao gồm điểm thắng bàn + thưởng tốc độ dò nhanh</span>
+            </div>
             {time <= bestTime && (
-              <div className="mt-2.5 rounded-full bg-google-yellow/20 border border-google-yellow/40 px-4 py-1 text-xs font-bold text-google-yellow">
+              <div className="mt-2 rounded-full bg-google-yellow/20 border border-google-yellow/40 px-4 py-1 text-xs font-bold text-google-yellow">
                 Kỷ lục mới của bạn!
               </div>
             )}
