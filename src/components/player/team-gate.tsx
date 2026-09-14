@@ -3,7 +3,6 @@
 import { useEffect, useState, ReactNode } from "react";
 import {
   Shield,
-  ShieldCheck,
   Sparkles,
   KeyRound,
   User,
@@ -12,13 +11,11 @@ import {
   Copy,
   Check,
   Trophy,
-  LogOut,
 } from "lucide-react";
 import {
   getActivePlayer,
   registerPlayerAccount,
   loginWithCode,
-  logoutPlayer,
   type PlayerProfile,
 } from "@/lib/player";
 import { initGameSession } from "@/lib/game-session";
@@ -118,11 +115,6 @@ export function TeamGate({ gameSlug, gameName, gameColor = "text-google-blue", c
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleLogout = () => {
-    logoutPlayer();
-    setPlayer(null);
-    setCreatedPlayer(null);
-  };
 
   if (isLoading) {
     return (
@@ -190,47 +182,9 @@ export function TeamGate({ gameSlug, gameName, gameColor = "text-google-blue", c
     );
   }
 
-  // 2. UNLOCKED: Player has an active team -> Render team badge & Game
+  // 2. UNLOCKED: Player has an active team -> Render Game directly without extra banner
   if (player?.code) {
-    return (
-      <div className="flex w-full flex-col gap-4">
-        {/* Active Team Verified Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-google-green/10 text-google-green">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">Đội thi đấu:</span>
-              <span className="text-sm font-black text-foreground">{player.name}</span>
-              <span className="rounded bg-primary/20 px-2 py-0.5 text-xs font-mono font-bold text-primary">
-                #{player.code}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-medium text-muted">
-            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-google-green font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-google-green animate-pulse" />
-              Lưu điểm trực tiếp DB
-            </span>
-            <span className="text-border">|</span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-google-red transition-colors"
-              title="Đổi đội khác"
-            >
-              <LogOut className="h-3 w-3" />
-              <span>Đổi đội</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Game Stage Content */}
-        {children}
-      </div>
-    );
+    return <>{children}</>;
   }
 
   // 3. LOCKED: Player has NOT created a team -> Show Mandatory Gate
