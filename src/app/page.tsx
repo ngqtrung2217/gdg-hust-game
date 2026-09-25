@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Trophy } from "lucide-react";
 import { GAMES } from "@/lib/games";
 import { GameIcon } from "@/components/ui/game-icon";
-import { GoogleDevLogo } from "@/components/ui/google-dev-logo";
+import { PartnerLogos } from "@/components/ui/google-dev-logo";
 
 const SCORE_KEYS: Record<string, { key: string; format: (v: number) => string }> = {
   minesweeper: {
@@ -62,17 +62,9 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 select-none">
-      {/* Big Title Header */}
-      <div className="mb-8 flex items-center gap-3.5 sm:gap-5">
-        <GoogleDevLogo className="h-11 w-11 sm:h-14 sm:w-14 md:h-16 md:w-16 shrink-0 drop-shadow-xs" />
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground">
-            GDG on Campus <span className="text-google-blue font-black">- HUST</span>
-          </h1>
-          <span className="rounded-xl bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs sm:text-sm font-black text-primary">
-            Arcade
-          </span>
-        </div>
+      {/* 3 Partner Logos Header */}
+      <div className="mb-8 flex items-center justify-center sm:justify-start py-2 border-b border-border/40 pb-6">
+        <PartnerLogos size="lg" />
       </div>
 
       {/* 9 Games Grid */}
